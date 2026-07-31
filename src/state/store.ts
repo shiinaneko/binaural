@@ -60,9 +60,9 @@ export interface AppState extends PersistedSettings {
   error: string | null;
   /**
    * 実際に使われている出力方式。
-   * media-element ならバックグラウンド再生が期待できる。実機での切り分け用に見せる。
+   * keepalive ならバックグラウンド再生が期待できる。実機での切り分け用に見せる。
    */
-  outputMode: 'media-element' | 'direct' | 'unknown';
+  outputMode: 'keepalive' | 'direct' | 'unknown';
 
   setView(view: View): void;
   selectPreset(id: string): void;

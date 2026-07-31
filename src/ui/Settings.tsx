@@ -82,11 +82,11 @@ export function Settings() {
           </label>
           {outputMode !== 'unknown' && (
             <p className="faint" style={{ margin: '10px 0 0' }}>
-              出力方式:{' '}
-              <b>{outputMode === 'media-element' ? 'メディア要素経由' : '直接出力'}</b>
-              {outputMode === 'media-element'
-                ? ' — 画面ロックやアプリ切り替えでも音が続きます'
-                : ' — この環境ではバックグラウンド再生が止まることがあります'}
+              バックグラウンド維持:{' '}
+              <b>{outputMode === 'keepalive' ? '有効' : '無効'}</b>
+              {outputMode === 'keepalive'
+                ? ' — 画面ロックやアプリ切り替えでも音が続くはずです'
+                : ' — この環境ではバックグラウンド再生が止まります'}
             </p>
           )}
         </li>
@@ -104,25 +104,25 @@ export function Settings() {
           <dl className="diagnostics">
             <dt>ビルド</dt>
             <dd>{diagnostics.buildId}</dd>
-            <dt>出力方式</dt>
+            <dt>バックグラウンド維持</dt>
             <dd>
-              {diagnostics.outputMode === 'media-element'
-                ? 'メディア要素経由'
+              {diagnostics.outputMode === 'keepalive'
+                ? '有効'
                 : diagnostics.outputMode === 'direct'
-                  ? '直接出力'
+                  ? '無効'
                   : '未再生（一度再生すると判明します）'}
             </dd>
-            {diagnostics.mediaSinkError && (
+            {diagnostics.keepaliveError && (
               <>
-                <dt>メディア要素の失敗理由</dt>
-                <dd>{diagnostics.mediaSinkError}</dd>
+                <dt>失敗理由</dt>
+                <dd>{diagnostics.keepaliveError}</dd>
               </>
             )}
-            <dt>要素の状態</dt>
+            <dt>キープアライブ</dt>
             <dd>
-              {diagnostics.mediaElementPaused === null
+              {diagnostics.keepalivePaused === null
                 ? '未作成'
-                : diagnostics.mediaElementPaused
+                : diagnostics.keepalivePaused
                   ? '停止中'
                   : '再生中'}
             </dd>

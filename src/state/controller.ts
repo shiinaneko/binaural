@@ -7,6 +7,7 @@
  */
 
 import { AudioEngine } from '../audio/AudioEngine';
+import { startKeepalive, type Keepalive } from '../audio/keepalive';
 import { buildTimeline, SessionScheduler } from '../audio/SessionScheduler';
 import { resolveAmbienceMix } from '../audio/layers/fallback';
 import { playTestTone, type TestToneHandle, type TestToneOptions } from '../audio/testTone';
@@ -22,10 +23,10 @@ let engine: AudioEngine | null = null;
 let scheduler: SessionScheduler | null = null;
 let ticker: number | null = null;
 let wakeLock: { release(): Promise<void> } | null = null;
-/** バックグラウンド再生を維持するための出力先 */
-let mediaElement: HTMLAudioElement | null = null;
-/** メディア要素経由に失敗した理由（実機での切り分け用） */
-let mediaSinkError: string | null = null;
+/** バックグラウンド再生を維持するためのキープアライブ再生 */
+let keepalive: Keepalive | null = null;
+/** キープアライブに失敗した理由（実機での切り分け用） */
+let keepaliveError: string | null = null;
 /** 記録中のセッション。終了時にログへ書き出す */
 let pendingLog: { presetId: string; presetName: string; startedAt: string; plannedSec: number } | null =
   null;
@@ -87,61 +88,36 @@ export async function ensureContext(): Promise<AudioContext> {
  * 左 312.01 Hz / 右 328.13 Hz、チャンネル分離 91.5 dB / 112.1 dB。
  * 非対応環境では従来どおり ctx.destination へフォールバックする。
  */
-async function createMediaSink(
-  context: AudioContext,
-): Promise<MediaStreamAudioDestinationNode | null> {
-  if (typeof context.createMediaStreamDestination !== 'function') {
-    mediaSinkError = 'createMediaStreamDestination が無い';
-    return null;
-  }
-
-  try {
-    const destination = context.createMediaStreamDestination();
-    const element = new Audio();
-    element.srcObject = destination.stream;
-    // iOS でインライン再生させるための指定（Android では無害）
-    element.setAttribute('playsinline', '');
-    element.volume = 1;
-    // DOM に入れておく。ブラウザによっては、文書に属していないメディア要素を
-    // 「再生中のメディア」として扱わないことがある
-    element.style.display = 'none';
-    document.body.appendChild(element);
-
+/**
+ * キープアライブ再生を始める。
+ *
+ * 音そのものは Web Audio が `ctx.destination` に直接出す（経路が最も単純で、
+ * 位相に手を触れない）。この要素は「メディアを再生中のページ」という状態を
+ * 作るためだけに鳴らす。詳しい理由は keepalive.ts を参照。
+ */
+async function ensureKeepalive(): Promise<void> {
+  if (keepalive) return;
+  keepalive = await startKeepalive();
+  if (keepalive) {
+    keepaliveError = null;
     // OS や他アプリの操作で外から止められた場合に、表示と実態を合わせる
-    element.addEventListener('pause', () => {
+    keepalive.element.addEventListener('pause', () => {
       if (useAppStore.getState().runtime.status === 'running') void togglePause();
     });
-
-    // **成功を確認してから採用する。** play() が拒否されたのに
-    // この経路を使ってしまうと、出力先がどこにも繋がらず完全な無音になる。
-    await element.play();
-
-    mediaElement = element;
-    mediaSinkError = null;
-    return destination;
-  } catch (err) {
-    mediaSinkError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    releaseMediaSink();
-    return null;
+  } else {
+    keepaliveError = 'キープアライブ再生を開始できませんでした';
   }
+  useAppStore.getState().setOutputMode(keepalive ? 'keepalive' : 'direct');
 }
 
-function releaseMediaSink(): void {
-  if (!mediaElement) return;
-  mediaElement.pause();
-  mediaElement.srcObject = null;
-  mediaElement.remove();
-  mediaElement = null;
+function releaseKeepalive(): void {
+  keepalive?.release();
+  keepalive = null;
 }
 
 async function ensureEngine(context: AudioContext): Promise<AudioEngine> {
   if (!engine) {
-    const sink = await createMediaSink(context);
-    useAppStore.getState().setOutputMode(sink ? 'media-element' : 'direct');
-    engine = new AudioEngine(context, {
-      volume: useAppStore.getState().volume,
-      ...(sink ? { sink } : {}),
-    });
+    engine = new AudioEngine(context, { volume: useAppStore.getState().volume });
   }
   return engine;
 }
@@ -150,8 +126,8 @@ async function ensureEngine(context: AudioContext): Promise<AudioEngine> {
 export interface AudioDiagnostics {
   buildId: string;
   outputMode: string;
-  mediaSinkError: string | null;
-  mediaElementPaused: boolean | null;
+  keepaliveError: string | null;
+  keepalivePaused: boolean | null;
   contextState: string | null;
   sampleRate: number | null;
   mediaSessionSupported: boolean;
@@ -165,8 +141,8 @@ export function getAudioDiagnostics(): AudioDiagnostics {
   return {
     buildId: __BUILD_ID__,
     outputMode: useAppStore.getState().outputMode,
-    mediaSinkError,
-    mediaElementPaused: mediaElement ? mediaElement.paused : null,
+    keepaliveError,
+    keepalivePaused: keepalive ? keepalive.element.paused : null,
     contextState: ctx?.state ?? null,
     sampleRate: ctx?.sampleRate ?? null,
     mediaSessionSupported: 'mediaSession' in navigator,
@@ -226,6 +202,8 @@ export async function startSession(): Promise<void> {
   const store = useAppStore.getState();
   try {
     const context = await ensureContext();
+    // 音を出す前に「メディアを再生中のページ」の状態を作っておく
+    await ensureKeepalive();
     const eng = await ensureEngine(context);
     eng.setVolume(store.volume);
 
@@ -275,7 +253,7 @@ export async function togglePause(): Promise<void> {
     // 先に状態を更新してから要素を止める。順序を逆にすると、
     // 要素の pause イベントを「外からの停止」と誤認して再帰してしまう
     store.patchRuntime({ status: 'paused' });
-    mediaElement?.pause();
+    keepalive?.element.pause();
     // suspend 中は currentTime が進まないため、スケジュール済みの自動化と経過時間の対応が保たれる
     await ctx.suspend();
     stopTicker();
@@ -283,7 +261,7 @@ export async function togglePause(): Promise<void> {
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   } else if (store.runtime.status === 'paused') {
     await ctx.resume();
-    void mediaElement?.play().catch(() => undefined);
+    void keepalive?.element.play().catch(() => undefined);
     store.patchRuntime({ status: 'running' });
     startTicker();
     void requestWakeLock();
@@ -300,7 +278,7 @@ export async function stopSession(): Promise<void> {
   }
 
   if (ctx.state === 'suspended') await ctx.resume();
-  void mediaElement?.play().catch(() => undefined);
+  void keepalive?.element.play().catch(() => undefined);
   commitLog(false);
   // 先に状態を更新してから、フェードアウトを鳴らしきる
   store.patchRuntime({ status: 'idle' });
@@ -310,7 +288,7 @@ export async function stopSession(): Promise<void> {
 
   window.setTimeout(
     () => {
-      releaseMediaSink();
+      releaseKeepalive();
       engine?.dispose();
       engine = null;
       scheduler = null;
@@ -344,7 +322,7 @@ function handleComplete(): void {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
   // グラフは破棄する（オシレータは既に停止済み）
   window.setTimeout(() => {
-    releaseMediaSink();
+    releaseKeepalive();
     engine?.dispose();
     engine = null;
     scheduler = null;
