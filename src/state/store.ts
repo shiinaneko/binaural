@@ -58,6 +58,11 @@ export interface AppState extends PersistedSettings {
   substitutions: Array<{ from: AmbienceId; to: AmbienceId }>;
   /** オーディオ関連のエラーメッセージ */
   error: string | null;
+  /**
+   * 実際に使われている出力方式。
+   * media-element ならバックグラウンド再生が期待できる。実機での切り分け用に見せる。
+   */
+  outputMode: 'media-element' | 'direct' | 'unknown';
 
   setView(view: View): void;
   selectPreset(id: string): void;
@@ -76,6 +81,7 @@ export interface AppState extends PersistedSettings {
   resetRuntime(): void;
   setSubstitutions(subs: Array<{ from: AmbienceId; to: AmbienceId }>): void;
   setError(message: string | null): void;
+  setOutputMode(mode: AppState['outputMode']): void;
 }
 
 const initial = typeof localStorage === 'undefined' ? DEFAULT_SETTINGS : loadSettings();
@@ -103,6 +109,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   log: typeof localStorage === 'undefined' ? [] : loadLog(),
   substitutions: [],
   error: null,
+  outputMode: 'unknown',
 
   setView: (view) => set({ view }),
 
@@ -166,4 +173,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSubstitutions: (substitutions) => set({ substitutions }),
 
   setError: (error) => set({ error }),
+
+  setOutputMode: (outputMode) => set({ outputMode }),
 }));

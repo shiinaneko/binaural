@@ -8,6 +8,7 @@ import { SafetyNotice } from './SafetyNotice';
 export function Settings() {
   const [showSafety, setShowSafety] = useState(false);
   const log = useAppStore((s) => s.log);
+  const outputMode = useAppStore((s) => s.outputMode);
   const refreshLog = useAppStore((s) => s.refreshLog);
   const summary = useMemo(() => summarize(log), [log]);
   const volume = useAppStore((s) => s.volume);
@@ -75,9 +76,18 @@ export function Settings() {
             />
             <span>
               再生中は画面を消さない
-              <span className="faint"> — 非対応の環境では無視されます（音は続きます）</span>
+              <span className="faint"> — 電池を使うので、バックグラウンド再生が効くなら不要です</span>
             </span>
           </label>
+          {outputMode !== 'unknown' && (
+            <p className="faint" style={{ margin: '10px 0 0' }}>
+              出力方式:{' '}
+              <b>{outputMode === 'media-element' ? 'メディア要素経由' : '直接出力'}</b>
+              {outputMode === 'media-element'
+                ? ' — 画面ロックやアプリ切り替えでも音が続きます'
+                : ' — この環境ではバックグラウンド再生が止まることがあります'}
+            </p>
+          )}
         </li>
 
         <li className="card">

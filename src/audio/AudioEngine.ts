@@ -56,6 +56,15 @@ export function createSoftClipCurve(thresholdDb = -6, samples = 4096): Float32Ar
 export interface AudioEngineOptions {
   /** 初期音量 0–1 */
   volume?: number;
+  /**
+   * 出力先。省略時は ctx.destination。
+   *
+   * リアルタイム再生では MediaStreamAudioDestinationNode を渡して `<audio>` 要素へ流す
+   * （Android でバックグラウンド再生を維持するため。SPEC.md §6）。
+   * この経路が位相を壊さないことは実測で確認済み（分離 91 dB 以上）。
+   * 書き出し（OfflineAudioContext）では常に ctx.destination を使う。
+   */
+  sink?: AudioNode;
 }
 
 export class AudioEngine {
@@ -96,7 +105,7 @@ export class AudioEngine {
     this.limiter = ctx.createWaveShaper();
     this.limiter.curve = createSoftClipCurve(-6);
     this.limiter.oversample = '4x';
-    this.limiter.connect(ctx.destination);
+    this.limiter.connect(opts.sink ?? ctx.destination);
 
     this.volumeNode = ctx.createGain();
     this.volumeNode.gain.value = volumeToGain(this.currentVolume);

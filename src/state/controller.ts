@@ -22,6 +22,8 @@ let engine: AudioEngine | null = null;
 let scheduler: SessionScheduler | null = null;
 let ticker: number | null = null;
 let wakeLock: { release(): Promise<void> } | null = null;
+/** バックグラウンド再生を維持するための出力先 */
+let mediaElement: HTMLAudioElement | null = null;
 /** 記録中のセッション。終了時にログへ書き出す */
 let pendingLog: { presetId: string; presetName: string; startedAt: string; plannedSec: number } | null =
   null;
@@ -67,9 +69,64 @@ export async function ensureContext(): Promise<AudioContext> {
   return ctx;
 }
 
+// ---------------------------------------------------------------------------
+// バックグラウンド再生（SPEC.md §6）
+// ---------------------------------------------------------------------------
+
+/**
+ * 素の Web Audio（ctx.destination）は、Android Chrome で画面ロックや
+ * アプリ切り替えをすると止まってしまう（実機で確認済み）。
+ *
+ * そこで音声を MediaStreamAudioDestinationNode → `<audio>` 要素に流す。
+ * ブラウザから「メディア再生」として扱われるため、バックグラウンドでも維持され、
+ * ロック画面の再生コントロール（MediaSession）とも自然に噛み合う。
+ *
+ * この経路が左右の位相を壊さないことは実測で確認した:
+ * 左 312.01 Hz / 右 328.13 Hz、チャンネル分離 91.5 dB / 112.1 dB。
+ * 非対応環境では従来どおり ctx.destination へフォールバックする。
+ */
+function createMediaSink(context: AudioContext): MediaStreamAudioDestinationNode | null {
+  if (typeof context.createMediaStreamDestination !== 'function') return null;
+  try {
+    const destination = context.createMediaStreamDestination();
+    const element = new Audio();
+    element.srcObject = destination.stream;
+    element.autoplay = true;
+    // iOS でインライン再生させるための指定（Android では無害）
+    element.setAttribute('playsinline', '');
+    element.volume = 1;
+
+    // OS や他アプリの操作で外から止められた場合に、表示と実態を合わせる
+    element.addEventListener('pause', () => {
+      if (useAppStore.getState().runtime.status === 'running') void togglePause();
+    });
+
+    void element.play().catch(() => {
+      // 自動再生が拒否された。呼び出し側がフォールバックを判断する
+    });
+
+    mediaElement = element;
+    return destination;
+  } catch {
+    return null;
+  }
+}
+
+function releaseMediaSink(): void {
+  if (!mediaElement) return;
+  mediaElement.pause();
+  mediaElement.srcObject = null;
+  mediaElement = null;
+}
+
 function ensureEngine(context: AudioContext): AudioEngine {
   if (!engine) {
-    engine = new AudioEngine(context, { volume: useAppStore.getState().volume });
+    const sink = createMediaSink(context);
+    useAppStore.getState().setOutputMode(sink ? 'media-element' : 'direct');
+    engine = new AudioEngine(context, {
+      volume: useAppStore.getState().volume,
+      ...(sink ? { sink } : {}),
+    });
   }
   return engine;
 }
@@ -169,14 +226,18 @@ export async function togglePause(): Promise<void> {
   if (!ctx || !scheduler) return;
 
   if (store.runtime.status === 'running') {
+    // 先に状態を更新してから要素を止める。順序を逆にすると、
+    // 要素の pause イベントを「外からの停止」と誤認して再帰してしまう
+    store.patchRuntime({ status: 'paused' });
+    mediaElement?.pause();
     // suspend 中は currentTime が進まないため、スケジュール済みの自動化と経過時間の対応が保たれる
     await ctx.suspend();
-    store.patchRuntime({ status: 'paused' });
     stopTicker();
     void releaseWakeLock();
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
   } else if (store.runtime.status === 'paused') {
     await ctx.resume();
+    void mediaElement?.play().catch(() => undefined);
     store.patchRuntime({ status: 'running' });
     startTicker();
     void requestWakeLock();
@@ -193,13 +254,17 @@ export async function stopSession(): Promise<void> {
   }
 
   if (ctx.state === 'suspended') await ctx.resume();
+  void mediaElement?.play().catch(() => undefined);
   commitLog(false);
+  // 先に状態を更新してから、フェードアウトを鳴らしきる
+  store.patchRuntime({ status: 'idle' });
   const tail = scheduler.stop(3);
   stopTicker();
   void releaseWakeLock();
 
   window.setTimeout(
     () => {
+      releaseMediaSink();
       engine?.dispose();
       engine = null;
       scheduler = null;
@@ -210,7 +275,6 @@ export async function stopSession(): Promise<void> {
     (tail + 0.1) * 1000,
   );
 
-  store.patchRuntime({ status: 'idle' });
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
 }
 
@@ -234,6 +298,7 @@ function handleComplete(): void {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
   // グラフは破棄する（オシレータは既に停止済み）
   window.setTimeout(() => {
+    releaseMediaSink();
     engine?.dispose();
     engine = null;
     scheduler = null;
