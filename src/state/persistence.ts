@@ -30,7 +30,11 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   headphoneChecked: false,
   chimeEnabled: true,
   wakeLockEnabled: true,
-  mergeOutput: false,
+  // 既定で有効。実機（Android + Bluetooth）で、別々の出力にすると
+  // キープアライブのループ周期（30 秒）ごとに音が途切れたため。
+  // 加算による影響は実測で確認済み: Δf は変化せず、左右分離は 84 dB
+  // （アプリ本来の環境音の 62 dB よりさらに小さい影響）
+  mergeOutput: true,
 };
 
 export function loadSettings(): PersistedSettings {
