@@ -3,7 +3,18 @@
 集中（ポモドーロ）と瞑想のためのバイノーラルビート生成アプリ。
 音はすべてブラウザ内で合成し、音源ファイルも通信も使わない。
 
+**公開先: https://shiinaneko.github.io/binaural/**
+
 仕様は [docs/SPEC.md](docs/SPEC.md) にあります。
+
+## スマートフォンで使う
+
+上記の URL を開き、ブラウザのメニューから「アプリをインストール」「ホーム画面に追加」を選ぶと、
+アプリとして起動できるようになります。一度開けばオフラインで全機能が動きます。
+
+**ヘッドホンを使ってください。** スピーカーではバイノーラルビートは成立しません
+（左右で異なる音を鳴らし、その差を脳が拾う仕組みのため）。
+スピーカーしか無い場合は、Studio で「モノラルビート」に切り替えると近い効果が得られます。
 
 ## 使い方
 
@@ -28,6 +39,24 @@ npm test
 ```bash
 npm run typecheck
 ```
+
+本番と同じサブパス（`/binaural/`）で確認する:
+
+```bash
+npm run build && npm run preview
+```
+
+## デプロイ
+
+`main` に push すると [GitHub Actions](.github/workflows/deploy.yml) が
+型検査 → テスト → ビルドを通してから GitHub Pages に公開します。
+どれかが落ちれば公開されません。
+
+初回のみ、リポジトリの **Settings → Pages → Source** を **「GitHub Actions」** に
+設定する必要があります（既定の「Deploy from a branch」のままだとワークフローが失敗します）。
+
+リポジトリ名を変える場合は [vite.config.ts](vite.config.ts) の `REPO_BASE` も合わせて変更してください。
+GitHub Pages はサブパス配信なので、ここがずれるとアセットを読めなくなります。
 
 ## 実装状況
 
