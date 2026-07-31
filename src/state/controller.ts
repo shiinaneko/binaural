@@ -7,7 +7,7 @@
  */
 
 import { AudioEngine } from '../audio/AudioEngine';
-import { startKeepalive, type Keepalive } from '../audio/keepalive';
+import { mergeKeepaliveInto, startKeepalive, type Keepalive } from '../audio/keepalive';
 import { buildTimeline, SessionScheduler } from '../audio/SessionScheduler';
 import { resolveAmbienceMix } from '../audio/layers/fallback';
 import { playTestTone, type TestToneHandle, type TestToneOptions } from '../audio/testTone';
@@ -27,6 +27,8 @@ let wakeLock: { release(): Promise<void> } | null = null;
 let keepalive: Keepalive | null = null;
 /** キープアライブに失敗した理由（実機での切り分け用） */
 let keepaliveError: string | null = null;
+/** 出力を 1 本にまとめられたか */
+let keepaliveMerged = false;
 /** 記録中のセッション。終了時にログへ書き出す */
 let pendingLog: { presetId: string; presetName: string; startedAt: string; plannedSec: number } | null =
   null;
@@ -95,11 +97,17 @@ export async function ensureContext(): Promise<AudioContext> {
  * 位相に手を触れない）。この要素は「メディアを再生中のページ」という状態を
  * 作るためだけに鳴らす。詳しい理由は keepalive.ts を参照。
  */
-async function ensureKeepalive(): Promise<void> {
+async function ensureKeepalive(context: AudioContext): Promise<void> {
   if (keepalive) return;
   keepalive = await startKeepalive();
   if (keepalive) {
     keepaliveError = null;
+    // 出力を 1 本にまとめる設定なら、Web Audio に取り込む
+    if (useAppStore.getState().mergeOutput) {
+      keepaliveMerged = mergeKeepaliveInto(keepalive, context, context.destination);
+    } else {
+      keepaliveMerged = false;
+    }
     // OS や他アプリの操作で外から止められた場合に、表示と実態を合わせる
     keepalive.element.addEventListener('pause', () => {
       if (useAppStore.getState().runtime.status === 'running') void togglePause();
@@ -128,6 +136,7 @@ export interface AudioDiagnostics {
   outputMode: string;
   keepaliveError: string | null;
   keepalivePaused: boolean | null;
+  keepaliveMerged: boolean;
   contextState: string | null;
   sampleRate: number | null;
   mediaSessionSupported: boolean;
@@ -143,6 +152,7 @@ export function getAudioDiagnostics(): AudioDiagnostics {
     outputMode: useAppStore.getState().outputMode,
     keepaliveError,
     keepalivePaused: keepalive ? keepalive.element.paused : null,
+    keepaliveMerged,
     contextState: ctx?.state ?? null,
     sampleRate: ctx?.sampleRate ?? null,
     mediaSessionSupported: 'mediaSession' in navigator,
@@ -203,7 +213,7 @@ export async function startSession(): Promise<void> {
   try {
     const context = await ensureContext();
     // 音を出す前に「メディアを再生中のページ」の状態を作っておく
-    await ensureKeepalive();
+    await ensureKeepalive(context);
     const eng = await ensureEngine(context);
     eng.setVolume(store.volume);
 
@@ -347,9 +357,33 @@ function stopTicker(): void {
 
 const GRAIN_LOOKAHEAD_SEC = 0.6;
 
+/**
+ * ロック画面の進捗を「セッションの経過」にする。
+ *
+ * 何もしないと、通知にはキープアライブ音のループ位置が出てしまい、
+ * 数十秒ごとに端まで進んでは戻る。25 分の進捗が見えるほうが自然だし、
+ * 「メーターが端に来た」ことがループの合図になってしまうのも避けたい。
+ */
+function updateMediaPosition(): void {
+  if (!scheduler || !('mediaSession' in navigator)) return;
+  if (typeof navigator.mediaSession.setPositionState !== 'function') return;
+  const duration = scheduler.totalSec;
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration,
+      position: Math.min(scheduler.elapsedSec, duration),
+      playbackRate: 1,
+    });
+  } catch {
+    // 対応していない環境。表示だけの話なので無視してよい
+  }
+}
+
 function tick(): void {
   if (!scheduler) return;
   scheduler.tick();
+  updateMediaPosition();
   // 粒（雨など）の先読み。tick 間隔 250ms に対して十分な余裕を取る。
   if (engine) engine.pumpLayers(engine.ctx.currentTime + GRAIN_LOOKAHEAD_SEC);
   const entry = scheduler.currentEntry;

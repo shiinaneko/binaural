@@ -12,6 +12,11 @@ export interface PersistedSettings {
   headphoneChecked: boolean;
   chimeEnabled: boolean;
   wakeLockEnabled: boolean;
+  /**
+   * バックグラウンド維持用の音を Web Audio に取り込み、出力を 1 本にまとめるか。
+   * 端末によっては 2 本のストリームの混合で音が途切れるため、切り替えられるようにしている。
+   */
+  mergeOutput: boolean;
 }
 
 const KEY = 'binaural-studio/settings/v1';
@@ -25,6 +30,7 @@ export const DEFAULT_SETTINGS: PersistedSettings = {
   headphoneChecked: false,
   chimeEnabled: true,
   wakeLockEnabled: true,
+  mergeOutput: false,
 };
 
 export function loadSettings(): PersistedSettings {

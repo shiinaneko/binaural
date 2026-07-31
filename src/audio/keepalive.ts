@@ -29,26 +29,46 @@ import { createWavHeader, PcmQuantizer } from './render/wav';
  * −55 dBFS は本編（−25 dBFS 前後）より 30 dB 低く、実質聞こえない。
  */
 const LEVEL_DB = -55;
-const SAMPLE_RATE = 22050;
-const DURATION_SEC = 10;
+
+/**
+ * 本編（Web Audio）と**同じ形式**にする。
+ *
+ * 最初は 22.05 kHz モノで作ったが、実機でループのたびに音が途切れた。
+ * サンプルレートやチャンネル数が違うと、Android 側が 2 つの出力を
+ * 組み替える必要が出て、そこで途切れると考えられる。
+ */
+const SAMPLE_RATE = 48000;
+const CHANNELS = 2;
+/**
+ * ループの回数自体を減らすため長めに取る（48kHz ステレオ 30 秒 ≒ 5.8 MB）。
+ *
+ * なお、中身はホワイトノイズなので**ループ点に波形の飛びは無い**
+ * （隣り合うサンプルが元々無関係なため、継ぎ目も他の場所と統計的に同じ）。
+ * ループのたびに音が途切れるとすれば、それは波形ではなく
+ * メディア要素の再生が再開されること自体が原因なので、回数を減らして影響を薄める。
+ */
+const DURATION_SEC = 30;
 
 /** ループ再生用の極小レベルのノイズを WAV として生成する */
 function createKeepaliveWav(): Blob {
   const frames = SAMPLE_RATE * DURATION_SEC;
-  const data = new Float32Array(frames);
-  const rand = mulberry32(0x6b656570);
   const amplitude = dbToGain(LEVEL_DB);
-  for (let i = 0; i < frames; i++) {
-    data[i] = (rand() * 2 - 1) * amplitude;
+  const channels: Float32Array[] = [];
+
+  for (let ch = 0; ch < CHANNELS; ch++) {
+    const rand = mulberry32(0x6b656570 + ch * 0x9e3779b9);
+    const out = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) out[i] = (rand() * 2 - 1) * amplitude;
+    channels.push(out);
   }
 
   const header = createWavHeader({
     sampleRate: SAMPLE_RATE,
-    channels: 1,
+    channels: CHANNELS,
     bitDepth: 16,
     totalFrames: frames,
   });
-  const pcm = new PcmQuantizer(16).encode([data]);
+  const pcm = new PcmQuantizer(16).encode(channels);
   return new Blob([header, pcm], { type: 'audio/wav' });
 }
 
@@ -56,6 +76,33 @@ export interface Keepalive {
   element: HTMLAudioElement;
   /** 再生を止めて資源を解放する */
   release(): void;
+}
+
+/**
+ * キープアライブの音を Web Audio の中に取り込み、出力を 1 本にまとめる。
+ *
+ * 既定ではキープアライブと本編が**別々の出力ストリーム**になる。
+ * Android では 2 本のストリームを混ぜる過程（特に Bluetooth 経由）で
+ * 音が途切れることがあるため、1 本にまとめられるようにしておく。
+ *
+ * 取り込むと要素の音は直接出力されなくなるので、この経路では
+ * キープアライブの音自体は Web Audio 側から出る。ページが
+ * 「メディアを再生中」である状態は要素が再生されている限り保たれる。
+ *
+ * 一度取り込んだ要素は直接出力に戻せない。セッションごとに作り直すこと。
+ */
+export function mergeKeepaliveInto(
+  keepalive: Keepalive,
+  ctx: AudioContext,
+  destination: AudioNode,
+): boolean {
+  try {
+    const source = ctx.createMediaElementSource(keepalive.element);
+    source.connect(destination);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

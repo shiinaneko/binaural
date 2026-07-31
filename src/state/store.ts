@@ -74,6 +74,7 @@ export interface AppState extends PersistedSettings {
   setVolumeState(volume: number): void;
   setChimeEnabled(enabled: boolean): void;
   setWakeLockEnabled(enabled: boolean): void;
+  setMergeOutput(enabled: boolean): void;
   setDimmed(dimmed: boolean): void;
   acknowledgeSafety(): void;
   markHeadphoneChecked(): void;
@@ -96,6 +97,7 @@ function persist(state: AppState): void {
     headphoneChecked: state.headphoneChecked,
     chimeEnabled: state.chimeEnabled,
     wakeLockEnabled: state.wakeLockEnabled,
+    mergeOutput: state.mergeOutput,
   });
 }
 
@@ -151,6 +153,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setWakeLockEnabled: (wakeLockEnabled) => {
     set({ wakeLockEnabled });
+    persist(get());
+  },
+
+  setMergeOutput: (mergeOutput) => {
+    set({ mergeOutput });
     persist(get());
   },
 

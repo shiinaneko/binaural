@@ -17,6 +17,8 @@ export function Settings() {
   const setChimeEnabled = useAppStore((s) => s.setChimeEnabled);
   const wakeLockEnabled = useAppStore((s) => s.wakeLockEnabled);
   const setWakeLockEnabled = useAppStore((s) => s.setWakeLockEnabled);
+  const mergeOutput = useAppStore((s) => s.mergeOutput);
+  const setMergeOutput = useAppStore((s) => s.setMergeOutput);
   const setView = useAppStore((s) => s.setView);
 
   return (
@@ -92,6 +94,28 @@ export function Settings() {
         </li>
 
         <li className="card">
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={mergeOutput}
+              onChange={(e) => setMergeOutput(e.target.checked)}
+            />
+            <span>
+              音の出力をまとめる
+              <span className="faint">
+                {' '}
+                — 再生中にプツッと途切れるときに試してください
+              </span>
+            </span>
+          </label>
+          <p className="faint" style={{ margin: '10px 0 0' }}>
+            バックグラウンド維持用の音と本編を 1 本の出力にまとめます。端末や
+            Bluetooth 機器によっては、2 本の音を混ぜる過程で途切れることがあるためです。
+            切り替えは<b>次に再生を始めたとき</b>から反映されます。
+          </p>
+        </li>
+
+        <li className="card">
           <div className="row-between">
             <span>動作状況</span>
             <button className="btn btn-ghost" onClick={() => setDiagnostics(getAudioDiagnostics())}>
@@ -125,6 +149,7 @@ export function Settings() {
                 : diagnostics.keepalivePaused
                   ? '停止中'
                   : '再生中'}
+              {diagnostics.keepaliveMerged ? '（出力をまとめている）' : ''}
             </dd>
             <dt>AudioContext</dt>
             <dd>
