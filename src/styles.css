@@ -1,0 +1,598 @@
+/*
+ * ダークテーマ既定。彩度の低いグラデーションで、点滅・ストロボは一切作らない。
+ * 動きは 0.1 Hz 程度の呼吸だけに限り、prefers-reduced-motion では停止する（SPEC.md §7.4）。
+ */
+
+:root {
+  --bg: #0b0e14;
+  --bg-raised: #131824;
+  --bg-raised-2: #1a2130;
+  --text: #e6e9f0;
+  --text-dim: #98a0b3;
+  --text-faint: #6b7488;
+  --line: #262d3d;
+  --accent: #6b7cff;
+  --accent-deep: #2b3480;
+  --danger: #ff7a6b;
+  --radius: 14px;
+  --font: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+
+  color-scheme: dark;
+}
+
+[data-colorway='indigo'] { --accent: #6b7cff; --accent-deep: #2b3480; }
+[data-colorway='teal'] { --accent: #3fd0c9; --accent-deep: #12554f; }
+[data-colorway='sand'] { --accent: #d8b98a; --accent-deep: #6b533a; }
+[data-colorway='violet'] { --accent: #a97bff; --accent-deep: #4a2a7a; }
+[data-colorway='amber'] { --accent: #ffb454; --accent-deep: #7a4a12; }
+[data-colorway='ocean'] { --accent: #4aa8ff; --accent-deep: #123a6b; }
+[data-colorway='midnight'] { --accent: #7a8cff; --accent-deep: #1a1f4a; }
+[data-colorway='ember'] { --accent: #ff8a5c; --accent-deep: #6b2a1a; }
+[data-colorway='forest'] { --accent: #7fd98a; --accent-deep: #1d5230; }
+[data-colorway='night'] { --accent: #5c6bd6; --accent-deep: #171a33; }
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.app {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+/* 背景のごく緩やかな呼吸（10 秒周期）。点滅にならないよう振幅は小さく。 */
+.app::before {
+  content: '';
+  position: fixed;
+  inset: -20% -20% auto -20%;
+  height: 70vh;
+  background: radial-gradient(circle at 50% 0%, var(--accent-deep), transparent 65%);
+  opacity: 0.35;
+  animation: breathe 10s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  transition: background 1.2s ease;
+}
+
+.app > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.28; }
+  50% { opacity: 0.42; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app::before {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- 共通パーツ ---------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.brand {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.brand span {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.icon-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  border-radius: 10px;
+  padding: 8px 14px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--bg-raised-2);
+  border-color: #36405a;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 8px 10px;
+}
+
+.btn-ghost:hover {
+  color: var(--text);
+  background: var(--bg-raised);
+}
+
+.btn-primary {
+  border: none;
+  background: var(--accent);
+  color: #0b0e14;
+  font-weight: 650;
+  padding: 15px 28px;
+  border-radius: 999px;
+  font-size: 16px;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: #4a2b2b;
+}
+
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.section-label {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 24px 0 10px;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.faint {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.notice {
+  border: 1px solid #3a3320;
+  background: #1d1a10;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  color: #e2d5ac;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.error {
+  border: 1px solid #4a2b2b;
+  background: #1f1414;
+  color: #ffb3a8;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+}
+
+/* --- プリセット一覧 ------------------------------------------------------ */
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.preset {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.preset:hover {
+  background: var(--bg-raised-2);
+}
+
+.preset[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, var(--bg-raised)), var(--bg-raised));
+}
+
+.preset-name {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.preset-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spec-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.spec-row b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+  min-width: 120px;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 17px;
+  height: 17px;
+}
+
+.start-row {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* --- セッション画面 ------------------------------------------------------ */
+
+.session {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.ring-wrap {
+  position: relative;
+  width: min(300px, 76vw);
+  aspect-ratio: 1;
+}
+
+.ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 4;
+}
+
+.ring-value {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s linear;
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.clock {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-sub {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+
+.beat-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  justify-content: center;
+}
+
+.beat-hz {
+  font-size: 26px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 暗転モード。時刻だけを残して輝度を落とす */
+.dim-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #4a5163;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  z-index: 50;
+  border: none;
+  cursor: pointer;
+}
+
+.dim-overlay .clock {
+  font-size: 54px;
+  color: #5b6478;
+}
+
+/* --- モーダル ------------------------------------------------------------ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 11, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.modal {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 560px;
+  width: 100%;
+  margin: auto;
+}
+
+.modal h2 {
+  margin: 0 0 4px;
+  font-size: 19px;
+}
+
+.modal ul {
+  padding-left: 1.2em;
+  margin: 14px 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+}
+
+.modal li {
+  margin-bottom: 8px;
+}
+
+.modal li strong {
+  color: var(--text);
+}
+
+/* --- ヘッドホンチェック -------------------------------------------------- */
+
+.check-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.check-step:last-child {
+  border-bottom: none;
+}
+
+.check-step h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hold-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.list-plain {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- Studio ---------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+input[type='text'],
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.json-box {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.curve-editor {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  touch-action: none;
+}
+
+.curve-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.curve-label {
+  fill: var(--text-faint);
+  font-size: 10px;
+}
+
+.curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.curve-warning {
+  stroke: var(--danger);
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+
+.curve-point {
+  fill: var(--bg-raised);
+  stroke: var(--accent);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.curve-point:hover {
+  fill: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .clock { font-size: 40px; }
+  .app { padding: 16px 14px 40px; }
+}
