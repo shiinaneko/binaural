@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { setVolume } from '../state/controller';
+import { getAudioDiagnostics, setVolume } from '../state/controller';
 import { clearLog, summarize } from '../state/sessionLog';
 import { useAppStore } from '../state/store';
 import { formatClock } from './format';
@@ -9,6 +9,7 @@ export function Settings() {
   const [showSafety, setShowSafety] = useState(false);
   const log = useAppStore((s) => s.log);
   const outputMode = useAppStore((s) => s.outputMode);
+  const [diagnostics, setDiagnostics] = useState(getAudioDiagnostics);
   const refreshLog = useAppStore((s) => s.refreshLog);
   const summary = useMemo(() => summarize(log), [log]);
   const volume = useAppStore((s) => s.volume);
@@ -88,6 +89,57 @@ export function Settings() {
                 : ' — この環境ではバックグラウンド再生が止まることがあります'}
             </p>
           )}
+        </li>
+
+        <li className="card">
+          <div className="row-between">
+            <span>動作状況</span>
+            <button className="btn btn-ghost" onClick={() => setDiagnostics(getAudioDiagnostics())}>
+              更新
+            </button>
+          </div>
+          <p className="faint" style={{ margin: '6px 0 10px' }}>
+            うまく動かないときの切り分け用です。そのまま伝えていただければ原因を追えます。
+          </p>
+          <dl className="diagnostics">
+            <dt>ビルド</dt>
+            <dd>{diagnostics.buildId}</dd>
+            <dt>出力方式</dt>
+            <dd>
+              {diagnostics.outputMode === 'media-element'
+                ? 'メディア要素経由'
+                : diagnostics.outputMode === 'direct'
+                  ? '直接出力'
+                  : '未再生（一度再生すると判明します）'}
+            </dd>
+            {diagnostics.mediaSinkError && (
+              <>
+                <dt>メディア要素の失敗理由</dt>
+                <dd>{diagnostics.mediaSinkError}</dd>
+              </>
+            )}
+            <dt>要素の状態</dt>
+            <dd>
+              {diagnostics.mediaElementPaused === null
+                ? '未作成'
+                : diagnostics.mediaElementPaused
+                  ? '停止中'
+                  : '再生中'}
+            </dd>
+            <dt>AudioContext</dt>
+            <dd>
+              {diagnostics.contextState ?? '未作成'}
+              {diagnostics.sampleRate ? ` / ${diagnostics.sampleRate} Hz` : ''}
+            </dd>
+            <dt>MediaSession</dt>
+            <dd>{diagnostics.mediaSessionSupported ? '対応' : '非対応'}</dd>
+            <dt>Wake Lock</dt>
+            <dd>{diagnostics.wakeLockSupported ? '対応' : '非対応'}</dd>
+            <dt>Service Worker</dt>
+            <dd>{diagnostics.serviceWorkerControlled ? '有効' : '未適用'}</dd>
+            <dt>表示モード</dt>
+            <dd>{diagnostics.standalone ? 'アプリとして起動' : 'ブラウザのタブ'}</dd>
+          </dl>
         </li>
 
         <li className="card">

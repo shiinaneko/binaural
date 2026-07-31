@@ -24,6 +24,8 @@ let ticker: number | null = null;
 let wakeLock: { release(): Promise<void> } | null = null;
 /** バックグラウンド再生を維持するための出力先 */
 let mediaElement: HTMLAudioElement | null = null;
+/** メディア要素経由に失敗した理由（実機での切り分け用） */
+let mediaSinkError: string | null = null;
 /** 記録中のセッション。終了時にログへ書き出す */
 let pendingLog: { presetId: string; presetName: string; startedAt: string; plannedSec: number } | null =
   null;
@@ -85,29 +87,41 @@ export async function ensureContext(): Promise<AudioContext> {
  * 左 312.01 Hz / 右 328.13 Hz、チャンネル分離 91.5 dB / 112.1 dB。
  * 非対応環境では従来どおり ctx.destination へフォールバックする。
  */
-function createMediaSink(context: AudioContext): MediaStreamAudioDestinationNode | null {
-  if (typeof context.createMediaStreamDestination !== 'function') return null;
+async function createMediaSink(
+  context: AudioContext,
+): Promise<MediaStreamAudioDestinationNode | null> {
+  if (typeof context.createMediaStreamDestination !== 'function') {
+    mediaSinkError = 'createMediaStreamDestination が無い';
+    return null;
+  }
+
   try {
     const destination = context.createMediaStreamDestination();
     const element = new Audio();
     element.srcObject = destination.stream;
-    element.autoplay = true;
     // iOS でインライン再生させるための指定（Android では無害）
     element.setAttribute('playsinline', '');
     element.volume = 1;
+    // DOM に入れておく。ブラウザによっては、文書に属していないメディア要素を
+    // 「再生中のメディア」として扱わないことがある
+    element.style.display = 'none';
+    document.body.appendChild(element);
 
     // OS や他アプリの操作で外から止められた場合に、表示と実態を合わせる
     element.addEventListener('pause', () => {
       if (useAppStore.getState().runtime.status === 'running') void togglePause();
     });
 
-    void element.play().catch(() => {
-      // 自動再生が拒否された。呼び出し側がフォールバックを判断する
-    });
+    // **成功を確認してから採用する。** play() が拒否されたのに
+    // この経路を使ってしまうと、出力先がどこにも繋がらず完全な無音になる。
+    await element.play();
 
     mediaElement = element;
+    mediaSinkError = null;
     return destination;
-  } catch {
+  } catch (err) {
+    mediaSinkError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    releaseMediaSink();
     return null;
   }
 }
@@ -116,12 +130,13 @@ function releaseMediaSink(): void {
   if (!mediaElement) return;
   mediaElement.pause();
   mediaElement.srcObject = null;
+  mediaElement.remove();
   mediaElement = null;
 }
 
-function ensureEngine(context: AudioContext): AudioEngine {
+async function ensureEngine(context: AudioContext): Promise<AudioEngine> {
   if (!engine) {
-    const sink = createMediaSink(context);
+    const sink = await createMediaSink(context);
     useAppStore.getState().setOutputMode(sink ? 'media-element' : 'direct');
     engine = new AudioEngine(context, {
       volume: useAppStore.getState().volume,
@@ -129,6 +144,37 @@ function ensureEngine(context: AudioContext): AudioEngine {
     });
   }
   return engine;
+}
+
+/** 実機での切り分け用。設定画面に出す。 */
+export interface AudioDiagnostics {
+  buildId: string;
+  outputMode: string;
+  mediaSinkError: string | null;
+  mediaElementPaused: boolean | null;
+  contextState: string | null;
+  sampleRate: number | null;
+  mediaSessionSupported: boolean;
+  wakeLockSupported: boolean;
+  serviceWorkerControlled: boolean;
+  standalone: boolean;
+}
+
+export function getAudioDiagnostics(): AudioDiagnostics {
+  const nav = navigator as Navigator & WakeLockNavigator;
+  return {
+    buildId: __BUILD_ID__,
+    outputMode: useAppStore.getState().outputMode,
+    mediaSinkError,
+    mediaElementPaused: mediaElement ? mediaElement.paused : null,
+    contextState: ctx?.state ?? null,
+    sampleRate: ctx?.sampleRate ?? null,
+    mediaSessionSupported: 'mediaSession' in navigator,
+    wakeLockSupported: !!nav.wakeLock,
+    serviceWorkerControlled:
+      'serviceWorker' in navigator && navigator.serviceWorker.controller !== null,
+    standalone: window.matchMedia('(display-mode: standalone)').matches,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +226,7 @@ export async function startSession(): Promise<void> {
   const store = useAppStore.getState();
   try {
     const context = await ensureContext();
-    const eng = ensureEngine(context);
+    const eng = await ensureEngine(context);
     eng.setVolume(store.volume);
 
     const { preset, substitutions } = buildRunnablePreset();

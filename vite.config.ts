@@ -16,6 +16,12 @@ export default defineConfig(({ command, isPreview }) => {
 
   return {
     base,
+    define: {
+      // 実機で「いま何が動いているか」を確認できるようにする
+      __BUILD_ID__: JSON.stringify(
+        new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+      ),
+    },
     plugins: [
       react(),
       // 音は全て合成・外部リソースゼロなので、precache だけで全機能がオフラインで動く。
