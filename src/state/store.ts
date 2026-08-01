@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type { AmbienceId, SegmentKind, SessionPreset } from '../audio/types';
 import type { SessionPhase } from '../audio/SessionScheduler';
+import type { Lang } from '../i18n';
 import { loadMyPresets } from './myPresets';
 import { loadLog, type LogEntry } from './sessionLog';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type PersistedSettings } from './persistence';
@@ -75,6 +76,7 @@ export interface AppState extends PersistedSettings {
   setChimeEnabled(enabled: boolean): void;
   setWakeLockEnabled(enabled: boolean): void;
   setMergeOutput(enabled: boolean): void;
+  setLanguage(language: Lang): void;
   setDimmed(dimmed: boolean): void;
   acknowledgeSafety(): void;
   markHeadphoneChecked(): void;
@@ -98,6 +100,7 @@ function persist(state: AppState): void {
     chimeEnabled: state.chimeEnabled,
     wakeLockEnabled: state.wakeLockEnabled,
     mergeOutput: state.mergeOutput,
+    language: state.language,
   });
 }
 
@@ -158,6 +161,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setMergeOutput: (mergeOutput) => {
     set({ mergeOutput });
+    persist(get());
+  },
+
+  setLanguage: (language) => {
+    set({ language });
+    document.documentElement.lang = language;
     persist(get());
   },
 

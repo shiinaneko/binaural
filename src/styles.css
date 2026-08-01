@@ -270,6 +270,17 @@ button {
   gap: 12px;
 }
 
+/* 選んだプリセットの説明。どの一覧に属するかが分かるよう、選択色で縁取る */
+.detail-card {
+  margin-top: 10px;
+  border-color: var(--accent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 10%, var(--bg-raised)),
+    var(--bg-raised)
+  );
+}
+
 .spec-row {
   display: flex;
   flex-wrap: wrap;
@@ -590,6 +601,27 @@ textarea {
 
 .curve-point:hover {
   fill: var(--accent);
+}
+
+/* 折りたたみ見出し */
+.disclosure {
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.disclosure::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure::before {
+  content: '▸ ';
+  color: var(--text-faint);
+}
+
+details[open] > .disclosure::before {
+  content: '▾ ';
 }
 
 /* 診断表示 */

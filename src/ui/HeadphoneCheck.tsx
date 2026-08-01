@@ -6,10 +6,12 @@
 import { useEffect, useState } from 'react';
 import { setVolume, startTestTone, stopTestTone } from '../state/controller';
 import { useAppStore } from '../state/store';
+import { useT } from './useT';
 
 type Playing = 'left' | 'right' | 'beat' | null;
 
 export function HeadphoneCheck() {
+  const t = useT();
   const [playing, setPlaying] = useState<Playing>(null);
   const volume = useAppStore((s) => s.volume);
   const markHeadphoneChecked = useAppStore((s) => s.markHeadphoneChecked);
@@ -41,7 +43,7 @@ export function HeadphoneCheck() {
     <>
       <div className="topbar">
         <h1 className="brand">
-          ヘッドホンチェック <span>/ 3 ステップ</span>
+          {t('headphone.title')} <span>/ {t('headphone.steps')}</span>
         </h1>
         <button
           className="btn btn-ghost"
@@ -50,54 +52,59 @@ export function HeadphoneCheck() {
             setView('home');
           }}
         >
-          戻る
+          {t('common.back')}
         </button>
       </div>
 
       <div className="card">
         <div className="check-step">
-          <h3>1. 左右が合っているか</h3>
+          <h3>{t('headphone.step1')}</h3>
           <p className="faint" style={{ margin: 0 }}>
-            片方ずつ鳴らします。表示と聞こえる側が一致していれば正しく装着できています。
+            {t('headphone.step1Hint')}
           </p>
           <div className="hold-buttons">
-            <button className="btn" aria-pressed={playing === 'left'} onClick={() => void toggle('left')}>
-              {playing === 'left' ? '■ 停止' : '◀ 左だけ鳴らす'}
+            <button
+              className="btn"
+              aria-pressed={playing === 'left'}
+              onClick={() => void toggle('left')}
+            >
+              {playing === 'left' ? t('headphone.stop') : t('headphone.left')}
             </button>
             <button
               className="btn"
               aria-pressed={playing === 'right'}
               onClick={() => void toggle('right')}
             >
-              {playing === 'right' ? '■ 停止' : '右だけ鳴らす ▶'}
+              {playing === 'right' ? t('headphone.stop') : t('headphone.right')}
             </button>
           </div>
         </div>
 
         <div className="check-step">
-          <h3>2. うなりが聞こえるか</h3>
+          <h3>{t('headphone.step2')}</h3>
           <p className="faint" style={{ margin: 0 }}>
-            左 237 Hz・右 243 Hz を同時に鳴らします。1 秒に 6 回ほど、
-            ゆっくり波打つように聞こえればバイノーラルビートが機能しています。
+            {t('headphone.step2Hint')}
             <br />
-            聞こえない場合はスピーカー再生になっている可能性があります。設定でモノラルビートに
-            切り替えると、スピーカーでも近い効果が得られます。
+            {t('headphone.step2Hint2')}
           </p>
           <div className="hold-buttons">
-            <button className="btn" aria-pressed={playing === 'beat'} onClick={() => void toggle('beat')}>
-              {playing === 'beat' ? '■ 停止' : '6 Hz のうなりを鳴らす'}
+            <button
+              className="btn"
+              aria-pressed={playing === 'beat'}
+              onClick={() => void toggle('beat')}
+            >
+              {playing === 'beat' ? t('headphone.stop') : t('headphone.playBeat')}
             </button>
           </div>
         </div>
 
         <div className="check-step">
-          <h3>3. 音量を決める</h3>
+          <h3>{t('headphone.step3')}</h3>
           <p className="faint" style={{ margin: 0 }}>
-            搬送波は「聞こえるが主役ではない」くらいが適量です。会話ができる程度に抑えてください
-            （最大音量の 60% 以下を推奨）。
+            {t('headphone.step3Hint')}
           </p>
           <div className="row">
-            <span className="faint">音量</span>
+            <span className="faint">{t('home.volume')}</span>
             <input
               type="range"
               min={0}
@@ -105,7 +112,7 @@ export function HeadphoneCheck() {
               step={0.01}
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              aria-label="音量"
+              aria-label={t('home.volume')}
             />
             <span className="faint" style={{ minWidth: '3em', textAlign: 'right' }}>
               {Math.round(volume * 100)}%
@@ -116,11 +123,10 @@ export function HeadphoneCheck() {
 
       <div className="start-row">
         <button className="btn btn-primary" onClick={done}>
-          確認しました
+          {t('headphone.done')}
         </button>
         <p className="faint" style={{ margin: 0 }}>
-          Bluetooth ヘッドホンでは、コーデックの処理で左右の位相関係が崩れることがあります。
-          うなりが弱いと感じたら有線接続をお試しください。
+          {t('headphone.bluetooth')}
         </p>
       </div>
     </>

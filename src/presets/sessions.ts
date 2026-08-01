@@ -329,7 +329,7 @@ export function toPomodoro(source: SessionPreset, opts: PomodoroOptions = {}): S
   return {
     ...source,
     id: `${source.id}--pomodoro`,
-    name: `${source.name}（ポモドーロ ${cycles} 本）`,
+    name: source.name,
     segments: [focus, shortBreak, longBreak],
     cycles,
   };

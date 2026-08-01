@@ -6,14 +6,12 @@
 import { useState } from 'react';
 import { curveDurationSec } from '../audio/BeatCurve';
 import { isValidPair, minCarrierForBeat } from '../audio/carrier';
-import { AMBIENCE_LABELS, IMPLEMENTED_AMBIENCES } from '../audio/layers';
-import { isImplemented } from '../audio/layers/fallback';
+import { IMPLEMENTED_AMBIENCES } from '../audio/layers';
 import {
   BEAT_MAX_HZ,
   CARRIER_MAX_HZ,
   CARRIER_MIN_HZ,
   MAX_RATE_HZ_PER_MIN,
-  type AmbienceId,
   type BeatMode,
   type SessionPreset,
 } from '../audio/types';
@@ -27,11 +25,13 @@ import {
 } from '../state/myPresets';
 import { useAppStore } from '../state/store';
 import { CurveEditor } from './CurveEditor';
-import { formatHz, MODE_LABELS } from './format';
+import { ambienceLabel, formatHz, modeLabel } from './format';
+import { useT } from './useT';
 
 const MODES: BeatMode[] = ['binaural', 'monaural', 'isochronic', 'hybrid'];
 
 export function Studio() {
+  const t = useT();
   const draft = useAppStore((s) => s.draft);
   const setDraft = useAppStore((s) => s.setDraft);
   const setView = useAppStore((s) => s.setView);
@@ -44,14 +44,14 @@ export function Studio() {
     return (
       <>
         <div className="topbar">
-          <h1 className="brand">Studio</h1>
+          <h1 className="brand">{t('studio.title')}</h1>
           <button className="btn btn-ghost" onClick={() => setView('home')}>
-            戻る
+            {t('common.back')}
           </button>
         </div>
         <div className="card">
           <p className="muted" style={{ margin: 0 }}>
-            編集するプリセットがありません。ホームでプリセットを選んで「複製して編集」から始めてください。
+            {t('studio.empty')}
           </p>
         </div>
       </>
@@ -92,7 +92,7 @@ export function Studio() {
   const save = () => {
     saveMyPreset(draft);
     refreshMyPresets();
-    setMessage('保存しました');
+    setMessage(t('studio.saved'));
   };
 
   const remove = () => {
@@ -107,24 +107,31 @@ export function Studio() {
       const imported = importPresetJson(importText);
       setDraft(imported);
       setImportText('');
-      setMessage(`「${imported.name}」を読み込みました`);
+      setMessage(t('studio.imported', { name: imported.name }));
     } catch (err) {
-      setMessage(err instanceof PresetImportError ? err.message : '読み込みに失敗しました');
+      setMessage(err instanceof PresetImportError ? err.message : t('studio.importFailed'));
     }
+  };
+
+  const modeHint: Record<BeatMode, string> = {
+    binaural: t('studio.modeBinaural'),
+    monaural: t('studio.modeMonaural'),
+    isochronic: t('studio.modeIsochronic'),
+    hybrid: t('studio.modeHybrid'),
   };
 
   return (
     <>
       <div className="topbar">
         <h1 className="brand">
-          Studio <span>/ {draft.name}</span>
+          {t('studio.title')} <span>/ {draft.name}</span>
         </h1>
         <div className="icon-row">
           <button className="btn btn-ghost" onClick={() => void startSession()}>
-            試聴
+            {t('studio.preview')}
           </button>
           <button className="btn btn-ghost" onClick={() => setView('home')}>
-            戻る
+            {t('common.back')}
           </button>
         </div>
       </div>
@@ -133,7 +140,7 @@ export function Studio() {
         <div className="notice" style={{ marginBottom: 14 }}>
           <span>{message}</span>
           <button className="btn btn-ghost" onClick={() => setMessage(null)}>
-            閉じる
+            {t('common.close')}
           </button>
         </div>
       )}
@@ -141,7 +148,7 @@ export function Studio() {
       <ul className="list-plain">
         <li className="card">
           <label className="field">
-            <span className="faint">名前</span>
+            <span className="faint">{t('studio.name')}</span>
             <input
               type="text"
               value={draft.name}
@@ -151,7 +158,7 @@ export function Studio() {
           </label>
           <div className="row" style={{ marginTop: 12 }}>
             <span className="faint" style={{ minWidth: '5em' }}>
-              長さ
+              {t('studio.length')}
             </span>
             <input
               type="range"
@@ -162,14 +169,14 @@ export function Studio() {
               onChange={(e) => setDuration(Number(e.target.value))}
             />
             <span className="faint" style={{ minWidth: '4em', textAlign: 'right' }}>
-              {Math.round(durationSec / 60)} 分
+              {t('common.minutes', { n: Math.round(durationSec / 60) })}
             </span>
           </div>
         </li>
 
         <li className="card">
           <p className="section-label" style={{ margin: '0 0 10px' }}>
-            ビート
+            {t('studio.beat')}
           </p>
           <CurveEditor
             curve={segment.beat.curve}
@@ -178,7 +185,6 @@ export function Studio() {
             onChange={(curve) =>
               update((next) => {
                 const target = next.segments[0]!;
-                // 端点はセグメント長に固定する（再生側の前提）
                 const points = curve.points.map((p) => ({ ...p }));
                 points[0]!.t = 0;
                 points[points.length - 1]!.t = target.durationSec;
@@ -188,7 +194,7 @@ export function Studio() {
           />
           <div className="row" style={{ marginTop: 14 }}>
             <span className="faint" style={{ minWidth: '5em' }}>
-              補間
+              {t('studio.interpolation')}
             </span>
             <div className="chips">
               {(['smooth', 'linear'] as const).map((kind) => (
@@ -205,7 +211,7 @@ export function Studio() {
                     update((next) => void (next.segments[0]!.beat.curve.interpolation = kind))
                   }
                 >
-                  {kind === 'smooth' ? 'なめらか' : '直線'}
+                  {kind === 'smooth' ? t('studio.smooth') : t('studio.linear')}
                 </button>
               ))}
             </div>
@@ -214,11 +220,11 @@ export function Studio() {
 
         <li className="card">
           <p className="section-label" style={{ margin: '0 0 10px' }}>
-            搬送波
+            {t('studio.carrier')}
           </p>
           <div className="row">
             <span className="faint" style={{ minWidth: '5em' }}>
-              周波数
+              {t('studio.frequency')}
             </span>
             <input
               type="range"
@@ -235,20 +241,21 @@ export function Studio() {
             </span>
           </div>
           <p className="faint" style={{ margin: '8px 0 0' }}>
-            左 {formatHz(segment.beat.carrierHz - maxBeatHz / 2, 1)} ／ 右{' '}
-            {formatHz(segment.beat.carrierHz + maxBeatHz / 2, 1)}（Δf 最大時）。
-            ビートの知覚は 200–500 Hz 付近が最も明瞭です。
+            {t('studio.sides', {
+              left: formatHz(segment.beat.carrierHz - maxBeatHz / 2, 1),
+              right: formatHz(segment.beat.carrierHz + maxBeatHz / 2, 1),
+            })}
             {!carrierValid && (
               <strong style={{ color: 'var(--danger)' }}>
                 {' '}
-                この Δf には {minCarrier} Hz 以上が必要です。
+                {t('studio.carrierTooLow', { hz: minCarrier })}
               </strong>
             )}
           </p>
 
           <div className="row" style={{ marginTop: 14 }}>
             <span className="faint" style={{ minWidth: '5em' }}>
-              方式
+              {t('studio.mode')}
             </span>
             <div className="chips">
               {MODES.map((mode) => (
@@ -265,29 +272,28 @@ export function Studio() {
                     update((next) => {
                       const target = next.segments[0]!;
                       target.beat.mode = mode;
-                      if ((mode === 'isochronic' || mode === 'hybrid') && target.beat.amDepth === 0) {
+                      if (
+                        (mode === 'isochronic' || mode === 'hybrid') &&
+                        target.beat.amDepth === 0
+                      ) {
                         target.beat.amDepth = mode === 'isochronic' ? 0.85 : 0.15;
                       }
                     })
                   }
                 >
-                  {MODE_LABELS[mode]}
+                  {modeLabel(mode, t)}
                 </button>
               ))}
             </div>
           </div>
           <p className="faint" style={{ margin: '8px 0 0' }}>
-            {segment.beat.mode === 'binaural' && 'ヘッドホン必須。左右で異なる音を鳴らす本来の方式。'}
-            {segment.beat.mode === 'monaural' && 'スピーカーでも機能します（物理的なうなり）。'}
-            {segment.beat.mode === 'isochronic' &&
-              '単一の音を Δf で断続させます。35 Hz 以上の帯域はこちらが確実です。'}
-            {segment.beat.mode === 'hybrid' && 'バイノーラルに浅い断続を重ねます。'}
+            {modeHint[segment.beat.mode]}
           </p>
 
           {(segment.beat.mode === 'isochronic' || segment.beat.mode === 'hybrid') && (
             <div className="row" style={{ marginTop: 12 }}>
               <span className="faint" style={{ minWidth: '5em' }}>
-                AM 深度
+                {t('studio.amDepth')}
               </span>
               <input
                 type="range"
@@ -308,12 +314,12 @@ export function Studio() {
 
         <li className="card">
           <p className="section-label" style={{ margin: '0 0 10px' }}>
-            環境音
+            {t('studio.ambience')}
           </p>
           {IMPLEMENTED_AMBIENCES.filter((id) => id !== 'none').map((id) => (
             <div className="row" key={id} style={{ marginBottom: 8 }}>
               <span className="faint" style={{ minWidth: '9em' }}>
-                {AMBIENCE_LABELS[id]}
+                {ambienceLabel(id, t)}
               </span>
               <input
                 type="range"
@@ -336,15 +342,9 @@ export function Studio() {
             </div>
           ))}
 
-          {(Object.keys(segment.ambience.layers) as AmbienceId[]).some((id) => !isImplemented(id)) && (
-            <p className="faint" style={{ margin: '4px 0 10px' }}>
-              未実装のレイヤー（森・焚き火・ボウル・ドローン）が含まれています。近い質感のノイズで代替されます。
-            </p>
-          )}
-
           <div className="row" style={{ marginTop: 12 }}>
             <span className="faint" style={{ minWidth: '9em' }}>
-              リバーブ
+              {t('studio.reverb')}
             </span>
             <input
               type="range"
@@ -361,18 +361,18 @@ export function Studio() {
             </span>
           </div>
           <p className="faint" style={{ margin: '8px 0 0' }}>
-            リバーブは環境音だけに掛かります（搬送波に掛けると左右の位相が壊れ、ビートが成立しなくなるため）。
+            {t('studio.reverbNote')}
           </p>
         </li>
 
         <li className="card">
           <p className="section-label" style={{ margin: '0 0 10px' }}>
-            フェード
+            {t('studio.fade')}
           </p>
           {(['fadeInSec', 'fadeOutSec'] as const).map((key) => (
             <div className="row" key={key} style={{ marginBottom: 8 }}>
               <span className="faint" style={{ minWidth: '5em' }}>
-                {key === 'fadeInSec' ? 'イン' : 'アウト'}
+                {key === 'fadeInSec' ? t('studio.fadeIn') : t('studio.fadeOut')}
               </span>
               <input
                 type="range"
@@ -385,7 +385,7 @@ export function Studio() {
                 }
               />
               <span className="faint" style={{ minWidth: '4em', textAlign: 'right' }}>
-                {segment[key]} 秒
+                {t('studio.seconds', { n: segment[key] })}
               </span>
             </div>
           ))}
@@ -397,15 +397,15 @@ export function Studio() {
                 update((next) => void (next.segments[0]!.chimeAtEnd = e.target.checked))
               }
             />
-            <span>終わりにチャイムを鳴らす</span>
+            <span>{t('studio.chimeAtEnd')}</span>
           </label>
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>JSON でやりとりする</span>
+            <span>{t('studio.json')}</span>
             <button className="btn" onClick={() => setShowJson(!showJson)}>
-              {showJson ? '閉じる' : '開く'}
+              {showJson ? t('common.close') : t('common.open')}
             </button>
           </div>
           {showJson && (
@@ -418,17 +418,17 @@ export function Studio() {
                 rows={6}
               />
               <p className="faint" style={{ margin: '10px 0 6px' }}>
-                読み込み（貼り付けて「読み込む」）
+                {t('studio.jsonImportLabel')}
               </p>
               <textarea
                 className="json-box"
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
                 rows={4}
-                placeholder="ここに JSON を貼り付け"
+                placeholder={t('studio.jsonPlaceholder')}
               />
               <button className="btn" style={{ marginTop: 8 }} onClick={doImport}>
-                読み込む
+                {t('studio.import')}
               </button>
             </div>
           )}
@@ -438,21 +438,23 @@ export function Studio() {
       <div className="start-row">
         <div className="controls">
           <button className="btn btn-primary" onClick={save}>
-            保存
+            {t('common.save')}
           </button>
           <button className="btn" onClick={() => void startSession()}>
-            この設定で再生
+            {t('studio.playThis')}
           </button>
           <button className="btn" onClick={() => setView('export')}>
-            書き出し
+            {t('studio.export')}
           </button>
           <button className="btn btn-danger" onClick={remove}>
-            削除
+            {t('common.delete')}
           </button>
         </div>
         <p className="faint" style={{ margin: 0 }}>
-          カーブの長さは {Math.round(curveDurationSec(segment.beat.curve))} 秒 / Δf 上限{' '}
-          {BEAT_MAX_HZ} Hz
+          {t('studio.curveFooter', {
+            sec: Math.round(curveDurationSec(segment.beat.curve)),
+            max: BEAT_MAX_HZ,
+          })}
         </p>
       </div>
     </>

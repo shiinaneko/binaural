@@ -1,17 +1,21 @@
 import { useMemo, useState } from 'react';
+import { LANGUAGES } from '../i18n';
 import { getAudioDiagnostics, setVolume } from '../state/controller';
 import { clearLog, summarize } from '../state/sessionLog';
 import { useAppStore } from '../state/store';
 import { formatClock } from './format';
 import { SafetyNotice } from './SafetyNotice';
+import { useT } from './useT';
 
 export function Settings() {
+  const t = useT();
   const [showSafety, setShowSafety] = useState(false);
   const log = useAppStore((s) => s.log);
+  const refreshLog = useAppStore((s) => s.refreshLog);
   const outputMode = useAppStore((s) => s.outputMode);
   const [diagnostics, setDiagnostics] = useState(getAudioDiagnostics);
-  const refreshLog = useAppStore((s) => s.refreshLog);
   const summary = useMemo(() => summarize(log), [log]);
+
   const volume = useAppStore((s) => s.volume);
   const chimeEnabled = useAppStore((s) => s.chimeEnabled);
   const setChimeEnabled = useAppStore((s) => s.setChimeEnabled);
@@ -19,6 +23,8 @@ export function Settings() {
   const setWakeLockEnabled = useAppStore((s) => s.setWakeLockEnabled);
   const mergeOutput = useAppStore((s) => s.mergeOutput);
   const setMergeOutput = useAppStore((s) => s.setMergeOutput);
+  const language = useAppStore((s) => s.language);
+  const setLanguage = useAppStore((s) => s.setLanguage);
   const setView = useAppStore((s) => s.setView);
 
   return (
@@ -26,17 +32,40 @@ export function Settings() {
       {showSafety && <SafetyNotice mode="review" onAcknowledge={() => setShowSafety(false)} />}
 
       <div className="topbar">
-        <h1 className="brand">設定</h1>
+        <h1 className="brand">{t('settings.title')}</h1>
         <button className="btn btn-ghost" onClick={() => setView('home')}>
-          戻る
+          {t('common.back')}
         </button>
       </div>
 
       <ul className="list-plain">
         <li className="card">
+          <div className="row-between">
+            <span>{t('settings.language')}</span>
+            <div className="chips">
+              {LANGUAGES.map((option) => (
+                <button
+                  key={option.id}
+                  className="btn"
+                  aria-pressed={language === option.id}
+                  onClick={() => setLanguage(option.id)}
+                  style={
+                    language === option.id
+                      ? { borderColor: 'var(--accent)', color: 'var(--accent)' }
+                      : undefined
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </li>
+
+        <li className="card">
           <div className="row">
             <span className="faint" style={{ minWidth: '4em' }}>
-              音量
+              {t('home.volume')}
             </span>
             <input
               type="range"
@@ -45,14 +74,14 @@ export function Settings() {
               step={0.01}
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              aria-label="音量"
+              aria-label={t('home.volume')}
             />
             <span className="faint" style={{ minWidth: '3em', textAlign: 'right' }}>
               {Math.round(volume * 100)}%
             </span>
           </div>
           <p className="faint" style={{ margin: '8px 0 0' }}>
-            出力は 0 dBFS を超えないよう保護リミッタが入っています。ブーストはしません。
+            {t('settings.volumeNote')}
           </p>
         </li>
 
@@ -64,33 +93,10 @@ export function Settings() {
               onChange={(e) => setChimeEnabled(e.target.checked)}
             />
             <span>
-              区切りのチャイム
-              <span className="faint"> — セグメントの終わりに小さなベルを鳴らす</span>
+              {t('settings.chime')}
+              <span className="faint"> — {t('settings.chimeHint')}</span>
             </span>
           </label>
-        </li>
-
-        <li className="card">
-          <label className="switch">
-            <input
-              type="checkbox"
-              checked={wakeLockEnabled}
-              onChange={(e) => setWakeLockEnabled(e.target.checked)}
-            />
-            <span>
-              再生中は画面を消さない
-              <span className="faint"> — 電池を使うので、バックグラウンド再生が効くなら不要です</span>
-            </span>
-          </label>
-          {outputMode !== 'unknown' && (
-            <p className="faint" style={{ margin: '10px 0 0' }}>
-              バックグラウンド維持:{' '}
-              <b>{outputMode === 'keepalive' ? '有効' : '無効'}</b>
-              {outputMode === 'keepalive'
-                ? ' — 画面ロックやアプリ切り替えでも音が続くはずです'
-                : ' — この環境ではバックグラウンド再生が止まります'}
-            </p>
-          )}
         </li>
 
         <li className="card">
@@ -101,93 +107,59 @@ export function Settings() {
               onChange={(e) => setMergeOutput(e.target.checked)}
             />
             <span>
-              音の出力をまとめる
-              <span className="faint"> — 途切れを防ぎます。通常はオンのままで大丈夫です</span>
+              {t('settings.mergeOutput')}
+              <span className="faint"> — {t('settings.mergeOutputHint')}</span>
             </span>
           </label>
           <p className="faint" style={{ margin: '10px 0 0' }}>
-            バックグラウンド維持用の音と本編を 1 本の出力にまとめます。別々にすると、
-            端末によっては 2 本の音を混ぜる過程で定期的に途切れます。
+            {t('settings.mergeOutputNote')}
             <br />
-            ビートへの影響はありません（実測で Δf は変化せず、左右の分離は 84 dB
-            ——環境音そのものの 62 dB よりさらに小さい影響です）。
-            切り替えは<b>次に再生を始めたとき</b>から反映されます。
+            {t('settings.mergeOutputMeasured')}
           </p>
         </li>
 
         <li className="card">
-          <div className="row-between">
-            <span>動作状況</span>
-            <button className="btn btn-ghost" onClick={() => setDiagnostics(getAudioDiagnostics())}>
-              更新
-            </button>
-          </div>
-          <p className="faint" style={{ margin: '6px 0 10px' }}>
-            うまく動かないときの切り分け用です。そのまま伝えていただければ原因を追えます。
-          </p>
-          <dl className="diagnostics">
-            <dt>ビルド</dt>
-            <dd>{diagnostics.buildId}</dd>
-            <dt>バックグラウンド維持</dt>
-            <dd>
-              {diagnostics.outputMode === 'keepalive'
-                ? '有効'
-                : diagnostics.outputMode === 'direct'
-                  ? '無効'
-                  : '未再生（一度再生すると判明します）'}
-            </dd>
-            {diagnostics.keepaliveError && (
-              <>
-                <dt>失敗理由</dt>
-                <dd>{diagnostics.keepaliveError}</dd>
-              </>
-            )}
-            <dt>キープアライブ</dt>
-            <dd>
-              {diagnostics.keepalivePaused === null
-                ? '未作成'
-                : diagnostics.keepalivePaused
-                  ? '停止中'
-                  : '再生中'}
-              {diagnostics.keepaliveMerged ? '（出力をまとめている）' : ''}
-            </dd>
-            <dt>AudioContext</dt>
-            <dd>
-              {diagnostics.contextState ?? '未作成'}
-              {diagnostics.sampleRate ? ` / ${diagnostics.sampleRate} Hz` : ''}
-            </dd>
-            <dt>MediaSession</dt>
-            <dd>{diagnostics.mediaSessionSupported ? '対応' : '非対応'}</dd>
-            <dt>Wake Lock</dt>
-            <dd>{diagnostics.wakeLockSupported ? '対応' : '非対応'}</dd>
-            <dt>Service Worker</dt>
-            <dd>{diagnostics.serviceWorkerControlled ? '有効' : '未適用'}</dd>
-            <dt>表示モード</dt>
-            <dd>{diagnostics.standalone ? 'アプリとして起動' : 'ブラウザのタブ'}</dd>
-          </dl>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={wakeLockEnabled}
+              onChange={(e) => setWakeLockEnabled(e.target.checked)}
+            />
+            <span>
+              {t('settings.wakeLock')}
+              <span className="faint"> — {t('settings.wakeLockHint')}</span>
+            </span>
+          </label>
+          {outputMode !== 'unknown' && (
+            <p className="faint" style={{ margin: '10px 0 0' }}>
+              {t('settings.backgroundKept')}:{' '}
+              <b>{outputMode === 'keepalive' ? t('settings.enabled') : t('settings.disabled')}</b>{' '}
+              {outputMode === 'keepalive' ? t('settings.backgroundOk') : t('settings.backgroundNg')}
+            </p>
+          )}
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>安全性の注意事項</span>
+            <span>{t('settings.safety')}</span>
             <button className="btn" onClick={() => setShowSafety(true)}>
-              表示する
+              {t('common.show')}
             </button>
           </div>
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>ヘッドホンチェック</span>
+            <span>{t('common.headphoneCheck')}</span>
             <button className="btn" onClick={() => setView('headphone')}>
-              やり直す
+              {t('common.redo')}
             </button>
           </div>
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>記録</span>
+            <span>{t('settings.records')}</span>
             {log.length > 0 && (
               <button
                 className="btn btn-ghost"
@@ -196,28 +168,27 @@ export function Settings() {
                   refreshLog();
                 }}
               >
-                すべて消す
+                {t('common.clearAll')}
               </button>
             )}
           </div>
           {log.length === 0 ? (
             <p className="faint" style={{ margin: '8px 0 0' }}>
-              まだ記録がありません。
+              {t('settings.noRecords')}
             </p>
           ) : (
             <>
               <div className="spec-row" style={{ marginTop: 10 }}>
                 <span>
-                  連続 <b>{summary.streakDays} 日</b>
+                  <b>{t('settings.streak', { n: summary.streakDays })}</b>
                 </span>
+                <span>{t('settings.thisWeek', { n: Math.round(summary.lastWeekSec / 60) })}</span>
+                <span>{t('settings.total', { n: Math.round(summary.totalSec / 3600) })}</span>
                 <span>
-                  今週 <b>{Math.round(summary.lastWeekSec / 60)} 分</b>
-                </span>
-                <span>
-                  通算 <b>{Math.round(summary.totalSec / 3600)} 時間</b>
-                </span>
-                <span>
-                  完走 <b>{summary.completedCount}</b> / {summary.sessionCount}
+                  {t('settings.completedCount', {
+                    done: summary.completedCount,
+                    all: summary.sessionCount,
+                  })}
                 </span>
               </div>
               <ul className="list-plain" style={{ marginTop: 12, gap: 6 }}>
@@ -227,7 +198,7 @@ export function Settings() {
                   .map((entry, index) => (
                     <li key={index} className="row-between faint" style={{ fontSize: 12.5 }}>
                       <span>
-                        {new Date(entry.startedAt).toLocaleString('ja-JP', {
+                        {new Date(entry.startedAt).toLocaleString(language, {
                           month: 'numeric',
                           day: 'numeric',
                           hour: '2-digit',
@@ -237,7 +208,7 @@ export function Settings() {
                       </span>
                       <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                         {formatClock(entry.completedSec)}
-                        {entry.completed ? '' : ' 中断'}
+                        {entry.completed ? '' : t('settings.interrupted')}
                       </span>
                     </li>
                   ))}
@@ -248,9 +219,85 @@ export function Settings() {
 
         <li className="card">
           <p className="faint" style={{ margin: 0 }}>
-            音はすべてこのアプリ内で合成しており、音源ファイルも通信も使いません。設定・マイプリセット・記録は
-            この端末の localStorage にのみ保存され、外部に送信されることはありません。
+            {t('settings.privacy')}
           </p>
+        </li>
+
+        {/* 切り分け用なので、普段は畳んでおく */}
+        <li className="card">
+          <details onToggle={() => setDiagnostics(getAudioDiagnostics())}>
+            <summary className="disclosure">{t('settings.diagnostics')}</summary>
+            <p className="faint" style={{ margin: '10px 0' }}>
+              {t('settings.diagnosticsHint')}
+            </p>
+            <div className="row-between" style={{ marginBottom: 10 }}>
+              <span className="faint" style={{ fontSize: 12.5 }}>
+                {diagnostics.buildId}
+              </span>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setDiagnostics(getAudioDiagnostics())}
+              >
+                {t('common.refresh')}
+              </button>
+            </div>
+            <dl className="diagnostics">
+              <dt>{t('settings.diag.build')}</dt>
+              <dd>{diagnostics.buildId}</dd>
+              <dt>{t('settings.diag.background')}</dt>
+              <dd>
+                {diagnostics.outputMode === 'keepalive'
+                  ? t('settings.enabled')
+                  : diagnostics.outputMode === 'direct'
+                    ? t('settings.disabled')
+                    : t('settings.diag.notPlayedYet')}
+              </dd>
+              {diagnostics.keepaliveError && (
+                <>
+                  <dt>{t('settings.diag.failReason')}</dt>
+                  <dd>{diagnostics.keepaliveError}</dd>
+                </>
+              )}
+              <dt>{t('settings.diag.keepalive')}</dt>
+              <dd>
+                {diagnostics.keepalivePaused === null
+                  ? t('settings.diag.notCreated')
+                  : diagnostics.keepalivePaused
+                    ? t('settings.diag.paused')
+                    : t('settings.diag.playing')}
+                {diagnostics.keepaliveMerged ? t('settings.diag.merged') : ''}
+              </dd>
+              <dt>{t('settings.diag.context')}</dt>
+              <dd>
+                {diagnostics.contextState ?? t('settings.diag.notCreated')}
+                {diagnostics.sampleRate ? ` / ${diagnostics.sampleRate} Hz` : ''}
+              </dd>
+              <dt>{t('settings.diag.mediaSession')}</dt>
+              <dd>
+                {diagnostics.mediaSessionSupported
+                  ? t('settings.diag.supported')
+                  : t('settings.diag.unsupported')}
+              </dd>
+              <dt>{t('settings.diag.wakeLock')}</dt>
+              <dd>
+                {diagnostics.wakeLockSupported
+                  ? t('settings.diag.supported')
+                  : t('settings.diag.unsupported')}
+              </dd>
+              <dt>{t('settings.diag.serviceWorker')}</dt>
+              <dd>
+                {diagnostics.serviceWorkerControlled
+                  ? t('settings.diag.active')
+                  : t('settings.diag.inactive')}
+              </dd>
+              <dt>{t('settings.diag.displayMode')}</dt>
+              <dd>
+                {diagnostics.standalone
+                  ? t('settings.diag.standalone')
+                  : t('settings.diag.browserTab')}
+              </dd>
+            </dl>
+          </details>
         </li>
       </ul>
     </>

@@ -17,6 +17,7 @@ import type { BitDepth } from '../audio/render/wav';
 import { buildRunnablePreset } from '../state/controller';
 import { useAppStore } from '../state/store';
 import { formatClock, formatMinutes } from './format';
+import { useT } from './useT';
 
 type Status = 'idle' | 'rendering' | 'done' | 'error';
 
@@ -26,6 +27,7 @@ function formatBytes(bytes: number): string {
 }
 
 export function Export() {
+  const t = useT();
   const setView = useAppStore((s) => s.setView);
   const presetId = useAppStore((s) => s.presetId);
   const pomodoro = useAppStore((s) => s.pomodoro);
@@ -80,15 +82,18 @@ export function Export() {
       });
       setStatus('done');
       setMessage(
-        `${formatClock(rendered.durationSec)} を ${rendered.renderSec.toFixed(1)} 秒で書き出しました`,
+        t('export.done', {
+          time: formatClock(rendered.durationSec),
+          sec: rendered.renderSec.toFixed(1),
+        }),
       );
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         setStatus('idle');
-        setMessage('中断しました');
+        setMessage(t('export.aborted'));
       } else {
         setStatus('error');
-        setMessage(err instanceof Error ? err.message : '書き出しに失敗しました');
+        setMessage(err instanceof Error ? err.message : t('export.failed'));
       }
     } finally {
       abortRef.current = null;
@@ -99,10 +104,14 @@ export function Export() {
     <>
       <div className="topbar">
         <h1 className="brand">
-          書き出し <span>/ WAV</span>
+          {t('export.title')} <span>/ WAV</span>
         </h1>
-        <button className="btn btn-ghost" onClick={() => setView('home')} disabled={status === 'rendering'}>
-          戻る
+        <button
+          className="btn btn-ghost"
+          onClick={() => setView('home')}
+          disabled={status === 'rendering'}
+        >
+          {t('common.back')}
         </button>
       </div>
 
@@ -110,16 +119,13 @@ export function Export() {
         <li className="card">
           <div className="row-between">
             <strong>{preset.name}</strong>
-            <span className="faint">{formatMinutes(durationSec)}</span>
+            <span className="faint">{formatMinutes(durationSec, t)}</span>
           </div>
-          <p className="muted" style={{ margin: '6px 0 0', fontSize: 13.5 }}>
-            {preset.description}
-          </p>
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>ビット深度</span>
+            <span>{t('export.bitDepth')}</span>
             <div className="chips">
               {([16, 24] as BitDepth[]).map((depth) => (
                 <button
@@ -129,7 +135,9 @@ export function Export() {
                   onClick={() => setBitDepth(depth)}
                   disabled={status === 'rendering'}
                   style={
-                    bitDepth === depth ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined
+                    bitDepth === depth
+                      ? { borderColor: 'var(--accent)', color: 'var(--accent)' }
+                      : undefined
                   }
                 >
                   {depth} bit
@@ -138,8 +146,7 @@ export function Export() {
             </div>
           </div>
           <p className="faint" style={{ margin: '10px 0 0' }}>
-            48 kHz ステレオ。16 bit には TPDF ディザを掛けます（量子化歪みを聞こえにくくするため）。
-            24 bit は量子化ノイズが可聴域に無いのでディザなしです。
+            {t('export.formatNote')}
           </p>
         </li>
 
@@ -152,31 +159,30 @@ export function Export() {
               disabled={status === 'rendering'}
             />
             <span>
-              ループ用に書き出す
-              <span className="faint"> — フェードを省き、環境音のループが揃う長さに丸める</span>
+              {t('export.loop')}
+              <span className="faint"> — {t('export.loopHint')}</span>
             </span>
           </label>
           {seamlessLoop && (
             <p className="faint" style={{ margin: '10px 0 0' }}>
-              長さを {formatClock(loop.durationSec)} に丸めます。環境音のループ位置は先頭と一致します。
+              {t('export.loopNote', { time: formatClock(loop.durationSec) })}{' '}
               {loop.phaseErrorDeg > 5
-                ? `搬送波の位相は継ぎ目で ${Math.round(loop.phaseErrorDeg)}° ずれるため、
-                   わずかな段差が出ることがあります（Δf や搬送波を整数 Hz にすると揃います）。`
-                : '搬送波の位相もほぼ揃います。'}
+                ? t('export.loopPhaseWarn', { deg: Math.round(loop.phaseErrorDeg) })
+                : t('export.loopPhaseOk')}
             </p>
           )}
         </li>
 
         <li className="card">
           <div className="row-between">
-            <span>ファイルサイズ（見積）</span>
+            <span>{t('export.size')}</span>
             <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
               {formatBytes(estimatedBytes)}
             </strong>
           </div>
           {estimatedBytes > 500e6 && (
             <p className="faint" style={{ margin: '8px 0 0' }}>
-              大きなファイルです。端末の空き容量を確認してください。
+              {t('export.sizeWarn')}
             </p>
           )}
         </li>
@@ -184,7 +190,7 @@ export function Export() {
         {status === 'rendering' && (
           <li className="card">
             <div className="row-between">
-              <span>{progress === 0 ? '合成の準備中…' : '書き出し中…'}</span>
+              <span>{progress === 0 ? t('export.preparing') : t('export.rendering')}</span>
               <span className="faint" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {Math.round(progress * 100)}%
               </span>
@@ -224,7 +230,7 @@ export function Export() {
                 <div className="faint">{formatBytes(result.bytes)}</div>
               </div>
               <a className="btn btn-primary" href={result.url} download={result.fileName}>
-                保存
+                {t('export.save')}
               </a>
             </div>
           </li>
@@ -232,8 +238,7 @@ export function Export() {
 
         <li className="card">
           <p className="faint" style={{ margin: 0 }}>
-            音はこの端末の中だけで合成されます。書き出しの間もどこにも送信されません。
-            再生と書き出しはまったく同じ合成コードを通るので、聴いた音がそのままファイルになります。
+            {t('export.privacy')}
           </p>
         </li>
       </ul>
@@ -241,11 +246,11 @@ export function Export() {
       <div className="start-row">
         {status === 'rendering' ? (
           <button className="btn btn-danger" onClick={() => abortRef.current?.abort()}>
-            中断
+            {t('export.abort')}
           </button>
         ) : (
           <button className="btn btn-primary" onClick={() => void start()}>
-            書き出す
+            {t('export.start')}
           </button>
         )}
       </div>

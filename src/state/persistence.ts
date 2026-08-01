@@ -3,7 +3,10 @@
  * localStorage のみを使い、外部送信は一切しない。
  */
 
+import { detectLanguage, type Lang } from '../i18n';
+
 export interface PersistedSettings {
+  language: Lang;
   volume: number;
   presetId: string;
   pomodoro: boolean;
@@ -22,6 +25,8 @@ export interface PersistedSettings {
 const KEY = 'binaural-studio/settings/v1';
 
 export const DEFAULT_SETTINGS: PersistedSettings = {
+  // 初回は端末の言語に合わせる。以降は保存された値が優先される
+  language: detectLanguage(),
   volume: 0.55,
   presetId: 'deep-work',
   pomodoro: false,

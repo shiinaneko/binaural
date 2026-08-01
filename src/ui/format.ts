@@ -1,3 +1,7 @@
+import type { Translate } from '../i18n';
+import type { AmbienceId, Band, BeatMode, SegmentKind } from '../audio/types';
+import type { SessionPhase } from '../audio/SessionScheduler';
+
 /** 秒 → mm:ss（1 時間以上は h:mm:ss） */
 export function formatClock(totalSec: number): string {
   const s = Math.max(0, Math.ceil(totalSec));
@@ -9,30 +13,24 @@ export function formatClock(totalSec: number): string {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-/** 秒 → 「25 分」表記 */
-export function formatMinutes(totalSec: number): string {
-  return `${Math.round(totalSec / 60)} 分`;
+/** 秒 → 「25 分」/「25 min」 */
+export function formatMinutes(totalSec: number, t: Translate): string {
+  return t('common.minutes', { n: Math.round(totalSec / 60) });
 }
 
 export function formatHz(hz: number, digits = 2): string {
   return `${hz.toFixed(digits)} Hz`;
 }
 
-export const SEGMENT_LABELS = {
-  focus: '集中',
-  shortBreak: '小休憩',
-  longBreak: '長休憩',
-} as const;
+export const segmentLabel = (kind: SegmentKind, t: Translate): string =>
+  t(`segment.${kind}` as const);
 
-export const PHASE_LABELS = {
-  onset: '導入',
-  plateau: '保持',
-  taper: '収束',
-} as const;
+export const phaseLabel = (phase: SessionPhase, t: Translate): string =>
+  t(`phase.${phase}` as const);
 
-export const MODE_LABELS = {
-  binaural: 'バイノーラル',
-  monaural: 'モノラルビート',
-  isochronic: 'アイソクロニック',
-  hybrid: 'ハイブリッド',
-} as const;
+export const modeLabel = (mode: BeatMode, t: Translate): string => t(`mode.${mode}` as const);
+
+export const bandLabel = (band: Band, t: Translate): string => t(`band.${band}` as const);
+
+export const ambienceLabel = (id: AmbienceId, t: Translate): string =>
+  t(`ambience.${id}` as const);

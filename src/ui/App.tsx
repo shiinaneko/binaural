@@ -24,7 +24,13 @@ export function App() {
   const safetyAcknowledged = useAppStore((s) => s.safetyAcknowledged);
   const acknowledgeSafety = useAppStore((s) => s.acknowledgeSafety);
 
+  const language = useAppStore((s) => s.language);
   const colorway = findPreset(presetId)?.colorway ?? 'indigo';
+
+  // 画面言語を <html lang> にも反映する（読み上げやフォント選択のため）
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   // タブ復帰時: 表示を追いつかせ、解放された WakeLock を取り直す（音はずれていない）
   useEffect(() => {

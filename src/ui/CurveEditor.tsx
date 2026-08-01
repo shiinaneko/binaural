@@ -9,6 +9,7 @@ import { useRef, useState } from 'react';
 import { beatHzAt, maxRateHzPerMin } from '../audio/BeatCurve';
 import type { BeatCurve } from '../audio/types';
 import { BEAT_MAX_HZ, BEAT_MIN_HZ } from '../audio/types';
+import { useT } from './useT';
 
 const WIDTH = 600;
 const HEIGHT = 220;
@@ -28,6 +29,7 @@ export function CurveEditor({
   maxRateHzPerMin: rateLimit,
   onChange,
 }: CurveEditorProps) {
+  const t = useT();
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
@@ -120,7 +122,7 @@ export function CurveEditor({
         onPointerUp={() => setDragIndex(null)}
         onPointerLeave={() => setDragIndex(null)}
         role="img"
-        aria-label="ビート周波数カーブ"
+        aria-label={t('curve.aria')}
       >
         {/* 目盛り */}
         {[0, 5, 10, 15, 20].filter((hz) => hz <= maxHz).map((hz) => (
@@ -145,7 +147,7 @@ export function CurveEditor({
             className="curve-label"
             textAnchor="middle"
           >
-            {Math.round((durationSec * fraction) / 60)}分
+            {t('curve.minutesAxis', { n: Math.round((durationSec * fraction) / 60) })}
           </text>
         ))}
 
@@ -196,15 +198,14 @@ export function CurveEditor({
       </svg>
 
       <p className="faint" style={{ margin: '6px 0 0' }}>
-        点をドラッグで移動、線の上をクリックで追加、点をダブルクリックで削除。
-        変化速度 {rate.toFixed(2)} Hz/分
+        {t('curve.help')} {t('curve.rate', { rate: rate.toFixed(2) })}
         {tooFast ? (
           <strong style={{ color: 'var(--danger)' }}>
             {' '}
-            — 上限 {rateLimit} Hz/分 を超えています。急な変化は不快に感じやすいです。
+            {t('curve.tooFast', { limit: rateLimit })}
           </strong>
         ) : (
-          <span className="faint"> / 上限 {rateLimit} Hz/分</span>
+          <span className="faint"> / {t('curve.rateLimit', { limit: rateLimit })}</span>
         )}
       </p>
     </div>

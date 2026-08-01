@@ -53,7 +53,8 @@ export function createDraftFrom(base: SessionPreset): SessionPreset {
   return {
     ...structuredClone(base),
     id: `my-${Date.now().toString(36)}`,
-    name: base.builtIn ? `${base.name} のコピー` : base.name,
+    // 名前は言語に依らない文字列にしておく（保存後に言語を変えても壊れないように）
+    name: base.builtIn ? `${base.name} +` : base.name,
     category: 'custom',
     builtIn: false,
     createdAt: now,
