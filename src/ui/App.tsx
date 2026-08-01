@@ -17,6 +17,7 @@ import { SafetyNotice } from './SafetyNotice';
 import { SessionView } from './SessionView';
 import { Settings } from './Settings';
 import { Studio } from './Studio';
+import { WaveBackground } from './WaveBackground';
 
 export function App() {
   const view = useAppStore((s) => s.view);
@@ -90,6 +91,7 @@ export function App() {
 
   return (
     <div className="app" data-colorway={colorway}>
+      <WaveBackground />
       {!safetyAcknowledged && <SafetyNotice mode="first-run" onAcknowledge={acknowledgeSafety} />}
       {view === 'home' && <Home />}
       {view === 'session' && <SessionView />}

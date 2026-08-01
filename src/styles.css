@@ -97,8 +97,44 @@ button {
   50% { opacity: 0.42; }
 }
 
+/* --- 背景の静かな波 ------------------------------------------------------- */
+
+.waves {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: min(46vh, 420px);
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  /* 下端に向かって濃く。画面全体を覆って主張しないように */
+  mask-image: linear-gradient(to bottom, transparent, #000 45%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%);
+}
+
+.waves svg {
+  width: 200%;
+  height: 100%;
+  display: block;
+}
+
+.wave-layer {
+  fill: var(--accent);
+  /* 半幅ぶん流して原点に戻る。波長が半幅を割り切るので継ぎ目は見えない */
+  animation-name: drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* 合成を GPU に任せ、音の生成を邪魔しないようにする */
+  will-change: transform;
+}
+
+@keyframes drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .app::before {
+  .app::before,
+  .wave-layer {
     animation: none;
   }
   * {
@@ -144,6 +180,25 @@ button {
 .btn:hover {
   background: var(--bg-raised-2);
   border-color: #36405a;
+}
+
+/* アイコンだけのボタン。指で押せる大きさは確保する */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--text-dim);
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-icon:hover {
+  color: var(--text);
+  background: var(--bg-raised);
+  border-color: var(--line);
 }
 
 .btn-ghost {

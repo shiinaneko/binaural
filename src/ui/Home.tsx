@@ -17,6 +17,7 @@ import { createDraftFrom } from '../state/myPresets';
 import { useAppStore } from '../state/store';
 import { BUILT_IN_PRESETS, DEFAULT_PRESET_ID, findPreset } from '../presets/sessions';
 import { ambienceLabel, bandLabel, formatHz, formatMinutes, modeLabel } from './format';
+import { GearIcon, HeadphonesIcon } from './icons';
 import { useT } from './useT';
 
 /** カーブの要点を「10.0 → 16.0 → 12.0 Hz」の形にまとめる */
@@ -194,12 +195,23 @@ export function Home() {
         <h1 className="brand">
           Binaural Studio <span>/ {t('home.tagline')}</span>
         </h1>
+        {/* アイコンだけにするので、意味は aria-label と title で伝える */}
         <div className="icon-row">
-          <button className="btn btn-ghost" onClick={() => setView('headphone')}>
-            {t('common.headphoneCheck')}
+          <button
+            className="btn btn-icon"
+            onClick={() => setView('headphone')}
+            aria-label={t('common.headphoneCheck')}
+            title={t('common.headphoneCheck')}
+          >
+            <HeadphonesIcon />
           </button>
-          <button className="btn btn-ghost" onClick={() => setView('settings')}>
-            {t('common.settings')}
+          <button
+            className="btn btn-icon"
+            onClick={() => setView('settings')}
+            aria-label={t('common.settings')}
+            title={t('common.settings')}
+          >
+            <GearIcon />
           </button>
         </div>
       </div>
