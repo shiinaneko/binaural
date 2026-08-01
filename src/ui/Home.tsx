@@ -1,11 +1,13 @@
 /**
  * Home 画面（SPEC.md §7.1-1）。プリセット選択と開始。
  *
- * 選んだプリセットの説明は、**その一覧の直下**に出す。
- * 一覧をすべて並べたあとにまとめて置くと、上の方のボタンを押したときに
- * 説明が画面のずっと下にあって気づけない（実際に指摘を受けた）。
+ * 一覧はタブで切り替え、**一度に 1 つだけ**表示する。説明カードは常に一覧の直下、
+ * 同じ位置に出る。すべての一覧を縦に並べると、上の方のボタンを押したときに
+ * 説明が画面のずっと下に来てしまい、選ぶたびに視線が大きく動く（実際に指摘を受けた）。
+ * 一覧の高さは最小値を確保してあるので、タブを変えても説明の位置がずれない。
  */
 
+import { useRef, useState } from 'react';
 import { beatHzAt, curveDurationSec } from '../audio/BeatCurve';
 import { bandForBeatHz } from '../audio/carrier';
 import type { AmbienceId, BeatCurve, SessionPreset } from '../audio/types';
@@ -33,6 +35,11 @@ function describeCurve(curve: BeatCurve, t: Translate): string {
       : waypoints;
   return `${shown.map((hz) => hz.toFixed(1)).join(' → ')} Hz`;
 }
+
+type TabId = 'focus' | 'meditate' | 'mine';
+
+/** マイプリセットを選ぶときは下書きとして開く（そのまま編集に進めるように） */
+const entryIsMine = (id: TabId): boolean => id === 'mine';
 
 function totalDurationSec(preset: SessionPreset): number {
   return preset.segments.reduce((sum, s) => sum + s.durationSec, 0);
@@ -106,12 +113,46 @@ export function Home() {
     ? Math.round((first.durationSec * cycles + 5 * 60 * (cycles - 1) + 20 * 60) / 60)
     : Math.round(totalDurationSec(preset) / 60);
 
-  /** 選択中のプリセットがどの一覧に属するか。説明をその直下に出すために使う。 */
-  const selectedGroup: 'focus' | 'meditate' | 'mine' = focusPresets.some((p) => p.id === preset.id)
+  /** 選択中のプリセットがどの一覧に属するか */
+  const selectedGroup: TabId = focusPresets.some((p) => p.id === preset.id)
     ? 'focus'
     : meditatePresets.some((p) => p.id === preset.id)
       ? 'meditate'
       : 'mine';
+
+  const tabs: Array<{ id: TabId; label: string; presets: SessionPreset[] }> = [
+    { id: 'focus', label: t('home.focus'), presets: focusPresets },
+    { id: 'meditate', label: t('home.meditate'), presets: meditatePresets },
+    ...(myPresets.length > 0
+      ? [{ id: 'mine' as const, label: t('home.myPresets'), presets: myPresets }]
+      : []),
+  ];
+
+  // 開いたときは、選ばれているプリセットの一覧を出す
+  const [tab, setTab] = useState<TabId>(selectedGroup);
+  const activeTab = tabs.find((entry) => entry.id === tab) ?? tabs[0]!;
+
+  /**
+   * 横スワイプでもタブを移せるようにする。
+   * 縦スクロールを邪魔しないよう、横の移動が明確に優勢なときだけ反応させる。
+   */
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const point = e.touches[0];
+    if (point) touchStart.current = { x: point.clientX, y: point.clientY };
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStart.current;
+    const point = e.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !point) return;
+    const dx = point.clientX - start.x;
+    const dy = point.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const index = tabs.findIndex((entry) => entry.id === activeTab.id);
+    const next = tabs[dx < 0 ? index + 1 : index - 1];
+    if (next) setTab(next.id);
+  };
 
   const detail = (
     <div className="card detail-card">
@@ -178,51 +219,38 @@ export function Home() {
 
       {error && <div className="error">{error}</div>}
 
-      <p className="section-label">{t('home.focus')}</p>
-      <div className="preset-grid">
-        {focusPresets.map((p) => (
-          <PresetButton
-            key={p.id}
-            preset={p}
-            selected={p.id === preset.id}
-            onSelect={() => selectPreset(p.id)}
-            t={t}
-          />
+      <div className="tabs" role="tablist">
+        {tabs.map((entry) => (
+          <button
+            key={entry.id}
+            role="tab"
+            className="tab"
+            aria-selected={entry.id === activeTab.id}
+            onClick={() => setTab(entry.id)}
+          >
+            {entry.label}
+            {/* 選択中のプリセットが別のタブにあるとき、どこにあるかを示す */}
+            {entry.id === selectedGroup && entry.id !== activeTab.id && (
+              <span className="tab-dot" aria-hidden="true" />
+            )}
+          </button>
         ))}
       </div>
-      {selectedGroup === 'focus' && detail}
 
-      <p className="section-label">{t('home.meditate')}</p>
-      <div className="preset-grid">
-        {meditatePresets.map((p) => (
-          <PresetButton
-            key={p.id}
-            preset={p}
-            selected={p.id === preset.id}
-            onSelect={() => selectPreset(p.id)}
-            t={t}
-          />
-        ))}
+      <div className="tab-panel" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div className="preset-grid">
+          {activeTab.presets.map((p) => (
+            <PresetButton
+              key={p.id}
+              preset={p}
+              selected={p.id === preset.id}
+              onSelect={() => (entryIsMine(activeTab.id) ? setDraft(p) : selectPreset(p.id))}
+              t={t}
+            />
+          ))}
+        </div>
+        {detail}
       </div>
-      {selectedGroup === 'meditate' && detail}
-
-      {myPresets.length > 0 && (
-        <>
-          <p className="section-label">{t('home.myPresets')}</p>
-          <div className="preset-grid">
-            {myPresets.map((p) => (
-              <PresetButton
-                key={p.id}
-                preset={p}
-                selected={p.id === preset.id}
-                onSelect={() => setDraft(p)}
-                t={t}
-              />
-            ))}
-          </div>
-        </>
-      )}
-      {selectedGroup === 'mine' && detail}
 
       <div className="detail">
         <div className="card">

@@ -225,10 +225,79 @@ button {
 
 /* --- プリセット一覧 ------------------------------------------------------ */
 
+/* --- タブ ---------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 22px 0 0;
+  padding: 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 9px;
+  padding: 9px 8px;
+  font-size: 13.5px;
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+}
+
+.tab[aria-selected='true'] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-raised-2));
+  color: var(--text);
+}
+
+.tab-panel {
+  border: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
+  padding: 12px;
+  /* タブを変えても説明カードの位置がずれないよう、一覧の高さを確保する */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tab-panel .preset-grid {
+  /* 3 行ぶん。タブを変えても説明カードが上下しないようにする */
+  min-height: 184px;
+  align-content: start;
+}
+
+.tab-panel .detail-card {
+  margin-top: 0;
+}
+
 .preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 10px;
+  /* 375px 幅のスマホでも 2 列に収まる下限にする。1 列になると一覧が縦に伸びて
+     説明カードが画面外へ押し出され、タブにした意味が無くなる */
+  grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
+  gap: 8px;
 }
 
 .preset {
@@ -236,10 +305,10 @@ button {
   border: 1px solid var(--line);
   background: var(--bg-raised);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -647,4 +716,8 @@ details[open] > .disclosure::before {
 @media (max-width: 480px) {
   .clock { font-size: 40px; }
   .app { padding: 16px 14px 40px; }
+  /* 狭い画面では副題を畳む。折り返して 2 行を占め、一覧を押し下げてしまうため */
+  .brand span { display: none; }
+  .preset-name { font-size: 14px; }
+  .preset-meta { font-size: 11.5px; }
 }
